@@ -82,6 +82,8 @@ VAE_PATIENCE = 8
 MAX_VAE_EPOCHS = 150
 # Выборка после обучения
 VAE_GENERATE_N = 5000
+# Максимальный размер батча при семплинге (GPU память)
+VAE_SAMPLE_BATCH = 512
 
 # Аугментация данных (рандомные SMILES на молекулу)
 AUG_PER_MOL = 10

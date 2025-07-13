@@ -171,30 +171,35 @@ class SelfiesVAE(nn.Module):
         logits = self.dec(z, tgt)
         return logits, mu, logvar
 
-    def sample(self, vocab: Vocab, num: int = 100) -> list[str]:
+    def sample(self, vocab: Vocab, num: int = 100, batch_size: int | None = None) -> list[str]:
+        """Generate *num* SMILES strings, sampling in mini-batches to save GPU memory."""
+        if batch_size is None:
+            batch_size = config.VAE_SAMPLE_BATCH
         self.eval()
-        with torch.no_grad():
-            z = torch.randn(num, LATENT_DIM, device=dev)
-            bos_idx = vocab.stoi[vocab.bos]
-            pad_idx = vocab.stoi[vocab.pad]
+        smiles_out: list[str] = []
+        bos_idx = vocab.stoi[vocab.bos]
+        pad_idx = vocab.stoi[vocab.pad]
 
-            seqs = torch.full((num, MAX_LEN), pad_idx, dtype=torch.long, device=dev)
-            seqs[:, 0] = bos_idx
-            for t in range(1, MAX_LEN):
-                logits = self.dec(z, seqs[:, :t])[:, -1, :]
-                prob = torch.softmax(logits, dim=-1)
-                next_tok = torch.multinomial(prob, 1).squeeze(-1)
-                seqs[:, t] = next_tok
-            smiles_out: list[str] = []
-            for row in seqs:
-                tokens = vocab.decode(row.tolist())
-                selfies_str = "".join(tokens)
-                try:
-                    smi = sf.decoder(selfies_str)
-                    smiles_out.append(smi)
-                except sf.DecoderError:
-                    continue
-            return smiles_out
+        with torch.no_grad():
+            for start in range(0, num, batch_size):
+                bs = min(batch_size, num - start)
+                z = torch.randn(bs, LATENT_DIM, device=dev)
+                seqs = torch.full((bs, MAX_LEN), pad_idx, dtype=torch.long, device=dev)
+                seqs[:, 0] = bos_idx
+                for t in range(1, MAX_LEN):
+                    logits = self.dec(z, seqs[:, :t])[:, -1, :]
+                    prob = torch.softmax(logits, dim=-1)
+                    next_tok = torch.multinomial(prob, 1).squeeze(-1)
+                    seqs[:, t] = next_tok
+                for row in seqs:
+                    tokens = vocab.decode(row.tolist())
+                    selfies_str = "".join(tokens)
+                    try:
+                        smi = sf.decoder(selfies_str)
+                        smiles_out.append(smi)
+                    except sf.DecoderError:
+                        continue
+        return smiles_out
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +270,11 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
     else:
         _train_new()
 
-    sampled = model.sample(vocab, num=n_samples * 4)  # oversample – later filter unique/valid
+    sampled = model.sample(
+        vocab,
+        num=n_samples * 4,  # oversample – later filter unique/valid
+        batch_size=config.VAE_SAMPLE_BATCH,
+    )
     unique_smiles = []
     seen = set()
     for smi in sampled:
