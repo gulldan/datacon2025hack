@@ -35,12 +35,16 @@ RAW_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
 OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_molecules.parquet"
 
 
-_fp_gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
+_fp_gen = GetMorganGenerator(
+    radius=config.FP_RADIUS,
+    fpSize=config.FP_BITS_LINEAR,
+    includeChirality=config.FP_INCLUDE_CHIRALITY,
+)
 
 
 def fingerprint(mol):
     bv = _fp_gen.GetFingerprint(mol)
-    arr = np.zeros((2048,), dtype=np.uint8)
+    arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.uint8)
     DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
     return arr
 
@@ -56,6 +60,11 @@ def main() -> None:
         return
 
     smiles_raw = [s.strip() for s in RAW_PATH.read_text().splitlines() if s.strip()]
+
+    if not smiles_raw:
+        LOGGER.warning("Raw SMILES list is empty – nothing to validate. Skipping further checks.")
+        return
+
     LOGGER.info("Loaded %d raw SMILES.", len(smiles_raw))
 
     seen_train = load_training_set()
@@ -73,7 +82,8 @@ def main() -> None:
         fps.append(fingerprint(mol))
 
     unique_smiles = sorted(set(valid))
-    LOGGER.info("Valid & novel molecules: %d (%.1f%%)", len(unique_smiles), 100 * len(unique_smiles) / len(smiles_raw))
+    valid_pct = 100 * len(unique_smiles) / len(smiles_raw) if smiles_raw else 0.0
+    LOGGER.info("Valid & novel molecules: %d (%.1f%%)", len(unique_smiles), valid_pct)
 
     # Diversity – average pairwise Tanimoto on sample
     sample_size = min(500, len(unique_smiles))

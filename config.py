@@ -1,5 +1,4 @@
 # config.py
-import os as _os
 from pathlib import Path
 
 # --- Основные пути ---
@@ -75,12 +74,14 @@ VAE_NUM_LAYERS = 2
 VAE_DROPOUT = 0.2
 # Обучение
 VAE_BATCH_SIZE = 64
-VAE_MAX_LEN = 120             # макс. длина SELFIES (токены)
+VAE_MAX_LEN = 100             # сократим длину, чтобы снизить бессмысленные цепочки
 VAE_LEARNING_RATE = 1e-3
-VAE_PATIENCE = 4
-MAX_VAE_EPOCHS = int(_os.getenv("VAE_EPOCHS", "60"))
+# Увеличим patience, раз обучаем дольше
+VAE_PATIENCE = 8
+# Максимальное число эпох (можно переопределить переменной окружения)
+MAX_VAE_EPOCHS = 150
 # Выборка после обучения
-VAE_GENERATE_N = 2000
+VAE_GENERATE_N = 5000
 
 # Аугментация данных (рандомные SMILES на молекулу)
 AUG_PER_MOL = 10
