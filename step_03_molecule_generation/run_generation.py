@@ -145,7 +145,7 @@ def run_generation_pipeline():
     """)
 
     # 2. Загрузка модели предсказания активности (coeffs + bias)
-    from step_02_activity_prediction.model_utils import load_model, smiles_to_fp
+    from step_02_activity_prediction.model_utils import load_model
 
     activity_model = load_model(config.MODEL_PATH)
     if hasattr(activity_model, "coeffs") and len(activity_model.coeffs()) > 0:  # type: ignore[arg-type]
@@ -183,10 +183,39 @@ def run_generation_pipeline():
         if not mol: continue
 
         score = scoring_function(smiles)
-        fp_arr = smiles_to_fp(smiles)
-        if fp_arr is None:
-            continue
-        pIC50 = float(activity_model.predict(fp_arr)[0])
+
+        # Построим тот же набор признаков, что использовался в скоринговой функции
+        use_linear = hasattr(activity_model, "coeffs") and len(activity_model.coeffs()) > 0  # type: ignore[arg-type]
+
+        if use_linear:
+            gen = GetMorganGenerator(
+                radius=config.FP_RADIUS,
+                fpSize=config.FP_BITS_LINEAR,
+                includeChirality=config.FP_INCLUDE_CHIRALITY,
+            )
+            bv = gen.GetFingerprint(mol)
+            arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
+        else:
+            gen = GetMorganGenerator(
+                radius=config.FP_RADIUS,
+                fpSize=config.FP_BITS_XGB,
+                includeChirality=config.FP_INCLUDE_CHIRALITY,
+            )
+            bv = gen.GetFingerprint(mol)
+            fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
+            desc_vals = np.asarray([
+                Descriptors.MolWt(mol),  # type: ignore[attr-defined]
+                Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
+                Descriptors.TPSA(mol),  # type: ignore[attr-defined]
+                Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
+                Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
+                Descriptors.RingCount(mol),  # type: ignore[attr-defined]
+            ], dtype=np.float32)
+            arr = np.concatenate([fp_arr, desc_vals])
+
+        pIC50 = float(activity_model.predict(arr.reshape(1, -1))[0])
 
         results.append({
             "smiles": smiles,
