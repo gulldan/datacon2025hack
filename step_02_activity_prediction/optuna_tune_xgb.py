@@ -79,7 +79,7 @@ def objective(trial: optuna.Trial):
         "eval_metric": "rmse",
         "tree_method": "hist",
         "device": "cuda",
-        "max_depth": trial.suggest_int("max_depth", 4, 10),
+        "max_depth": trial.suggest_int("max_depth", 4, 50),
         "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.3, 1.0),

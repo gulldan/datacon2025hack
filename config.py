@@ -67,7 +67,7 @@ GENERATED_MOLECULES_PATH = GENERATION_RESULTS_DIR / "generated_molecules.parquet
 
 # --- Шаг 3: Конфигурация генераторов ---
 # Выбор генеративной модели: "selfies_vae" | "graph_flow" (будущий T21)
-GENERATOR_TYPE = "selfies_vae"
+GENERATOR_TYPE = "graph_flow"
 # Путь к сохранённой модели генерации графов (если выбран graph_flow)
 GRAPH_FLOW_MODEL_PATH = GENERATION_RESULTS_DIR / "graph_flow.pt"
 
@@ -149,7 +149,7 @@ BOX_SIZE = (20.0, 20.0, 20.0)
 # --- PaDEL Descriptor ---
 # Путь к PaDEL-Descriptor.jar (скачайте с https://github.com/dataprofessor/padel)
 PADEL_JAR_PATH = BASE_DIR / "external" / "PaDEL-Descriptor.jar"
-USE_PADEL_DESCRIPTORS = False  # установить True, если Java и PaDEL.jar доступны
+USE_PADEL_DESCRIPTORS = True  # установить True, если Java и PaDEL.jar доступны
 
 # Параметры моделей ---
 RANDOM_STATE = 42

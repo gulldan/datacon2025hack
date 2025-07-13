@@ -6,26 +6,78 @@ from rdkit import (
     Chem,  # type: ignore
     DataStructs,  # type: ignore
 )
-from rdkit.Chem import QED, Crippen  # type: ignore
-from rdkit.Chem.Descriptors import Descriptors  # type: ignore
+from rdkit.Chem import (  # type: ignore
+    QED,
+    Crippen,
+    Descriptors,  # type: ignore
+)
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
 
+
 # --- Вспомогательные функции для оценки свойств ---
+def _calculate_sa_score(mol: Chem.Mol) -> float:
+    """Approximate Synthetic Accessibility score.
+
+    Based on empirical complexity features: size, rings, hetero-atoms, etc.
+    Not as accurate as Ertl & Schuffenhauer (2009) implementation, but
+    provides a deterministic fallback when `sascorer` module is absent.
+    """
+    try:
+        score = 1.0
+
+        num_atoms = mol.GetNumAtoms()
+        if num_atoms > 50:
+            score += 2.0
+        elif num_atoms > 30:
+            score += 1.5
+        elif num_atoms > 20:
+            score += 1.0
+
+        ring_info = mol.GetRingInfo()
+        ring_count = ring_info.NumRings()
+        score += 0.5 * ring_count
+
+        # rings bigger than 6 atoms
+        complex_rings = sum(1 for ring in ring_info.AtomRings() if len(ring) > 6)
+        score += 0.8 * complex_rings
+
+        score += 0.3 * Descriptors.NumRotatableBonds(mol)  # type: ignore[attr-defined]
+        score += 1.0 * Descriptors.NumSpiroAtoms(mol)  # type: ignore[attr-defined]
+        score += 0.8 * Descriptors.NumBridgeheadAtoms(mol)  # type: ignore[attr-defined]
+
+        # stereocentres counted as chiral centers
+        stereo_centers = Chem.FindPotentialStereo(mol, includeDefinitiveHits=True)
+        score += 0.4 * len(stereo_centers)
+
+        heteroatoms = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() not in {"C", "H"})
+        score += 0.2 * heteroatoms
+
+        # selected complex functional groups via SMARTS
+        complex_smarts = [
+            "C(=O)N",  # amide
+            "C(=O)O",  # acid/ester
+            "C(=O)[Cl,Br,I]",  # acyl halide
+            "C#N",  # nitrile
+            "C#C",  # alkyne
+            "C=C=C",  # allene
+        ]
+        complex_groups = sum(mol.HasSubstructMatch(Chem.MolFromSmarts(p)) for p in complex_smarts)
+        score += 0.3 * complex_groups
+
+        return float(max(1.0, min(10.0, score)))
+    except Exception:
+        return 5.0
 
 def calculate_sa_score(smiles: str):
     """Расчет Synthetic Accessibility score."""
-    # Эта функция требует установки rdkit-pypi>=2022.9.1 и скачанных файлов
-    # Для простоты вернем случайное значение, имитируя вызов
-    # from rdkit.Chem import RDConfig
-    # import os
-    # sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
-    # import sascorer
-    # mol = Chem.MolFromSmiles(smiles)
-    # return sascorer.calculateScore(mol) if mol else 5.0
-    return np.random.uniform(1, 5)
+    mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
+    if not mol:
+        return 5.0 # Fallback to heuristic approximation
+    # Fallback to heuristic approximation
+    return _calculate_sa_score(mol)
 
 
 def calculate_bbbp(smiles: str):

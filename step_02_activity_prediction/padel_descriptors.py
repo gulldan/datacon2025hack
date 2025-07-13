@@ -38,7 +38,6 @@ def batch_compute(smiles: list[str], threads: int = 4) -> pd.DataFrame:
         fingerprints=False,
         descriptors=True,
         threads=threads,
-        retainorder=True,
     )
     return pd.DataFrame(desc_list)
 

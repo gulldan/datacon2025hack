@@ -31,26 +31,6 @@ torch.manual_seed(SEED)
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ---------------------------------------------------------------------------
-# Override hyper-parameters with Optuna-tuned best params (if any)
-# ---------------------------------------------------------------------------
-
-_BEST_VAE_JSON = config.GENERATION_RESULTS_DIR / "optuna_vae_best.json"
-if _BEST_VAE_JSON.exists():
-    import json as _json
-
-    best_conf = _json.loads(_BEST_VAE_JSON.read_text())
-    _params = best_conf.get("params", {})
-    globals().update({
-        "EMBED_DIM": _params.get("embed_dim", config.VAE_EMBED_DIM),
-        "HIDDEN_DIM": _params.get("hidden_dim", config.VAE_HIDDEN_DIM),
-        "LATENT_DIM": _params.get("latent_dim", config.VAE_LATENT_DIM),
-        "BATCH_SIZE": _params.get("batch_size", config.VAE_BATCH_SIZE),
-        "LEARNING_RATE": _params.get("lr", config.VAE_LEARNING_RATE),
-        "DROPOUT": _params.get("dropout", config.VAE_DROPOUT),
-    })
-    LOGGER.info("Loaded tuned VAE parameters from %s", _BEST_VAE_JSON)
-
-# ---------------------------------------------------------------------------
 # Hyper-parameters
 # ---------------------------------------------------------------------------
 EMBED_DIM = config.VAE_EMBED_DIM
@@ -191,35 +171,30 @@ class SelfiesVAE(nn.Module):
         logits = self.dec(z, tgt)
         return logits, mu, logvar
 
-    def sample(self, vocab: Vocab, num: int = 100, batch_size: int | None = None) -> list[str]:
-        """Generate *num* SMILES strings, sampling in mini-batches to save GPU memory."""
-        if batch_size is None:
-            batch_size = config.VAE_SAMPLE_BATCH
+    def sample(self, vocab: Vocab, num: int = 100) -> list[str]:
         self.eval()
-        smiles_out: list[str] = []
-        bos_idx = vocab.stoi[vocab.bos]
-        pad_idx = vocab.stoi[vocab.pad]
-
         with torch.no_grad():
-            for start in range(0, num, batch_size):
-                bs = min(batch_size, num - start)
-                z = torch.randn(bs, LATENT_DIM, device=dev)
-                seqs = torch.full((bs, MAX_LEN), pad_idx, dtype=torch.long, device=dev)
-                seqs[:, 0] = bos_idx
-                for t in range(1, MAX_LEN):
-                    logits = self.dec(z, seqs[:, :t])[:, -1, :]
-                    prob = torch.softmax(logits, dim=-1)
-                    next_tok = torch.multinomial(prob, 1).squeeze(-1)
-                    seqs[:, t] = next_tok
-                for row in seqs:
-                    tokens = vocab.decode(row.tolist())
-                    selfies_str = "".join(tokens)
-                    try:
-                        smi = sf.decoder(selfies_str)
-                        smiles_out.append(smi)
-                    except sf.DecoderError:
-                        continue
-        return smiles_out
+            z = torch.randn(num, LATENT_DIM, device=dev)
+            bos_idx = vocab.stoi[vocab.bos]
+            pad_idx = vocab.stoi[vocab.pad]
+
+            seqs = torch.full((num, MAX_LEN), pad_idx, dtype=torch.long, device=dev)
+            seqs[:, 0] = bos_idx
+            for t in range(1, MAX_LEN):
+                logits = self.dec(z, seqs[:, :t])[:, -1, :]
+                prob = torch.softmax(logits, dim=-1)
+                next_tok = torch.multinomial(prob, 1).squeeze(-1)
+                seqs[:, t] = next_tok
+            smiles_out: list[str] = []
+            for row in seqs:
+                tokens = vocab.decode(row.tolist())
+                selfies_str = "".join(tokens)
+                try:
+                    smi = sf.decoder(selfies_str)
+                    smiles_out.append(smi)
+                except sf.DecoderError:
+                    continue
+            return smiles_out
 
 
 # ---------------------------------------------------------------------------
@@ -274,33 +249,16 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
 
     model = SelfiesVAE(len(vocab)).to(dev)
 
-    # Optuna hyperparameter tuning (placeholder)
-    if getattr(config, "OPTUNA_TUNE_VAE", False):
-        from step_03_molecule_generation import optuna_tune_vae
-
-        optuna_tune_vae.main()
-
-    def _train_new():
+    if MODEL_PATH.exists():
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
+        LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
+    else:
         LOGGER.info("Training SELFIES-VAE model (%d molecules)…", len(selfies_data))
         ds = SelfiesDataset(selfies_data, vocab)
         train(model, ds)
         LOGGER.info("Training finished. Model saved to %s", MODEL_PATH)
 
-    if MODEL_PATH.exists():
-        try:
-            model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
-            LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
-        except RuntimeError as e:
-            LOGGER.warning("Checkpoint mismatch (%s). Re-training VAE from scratch…", str(e).split("\n")[0])
-            _train_new()
-    else:
-        _train_new()
-
-    sampled = model.sample(
-        vocab,
-        num=n_samples * 4,  # oversample – later filter unique/valid
-        batch_size=config.VAE_SAMPLE_BATCH,
-    )
+    sampled = model.sample(vocab, num=n_samples * 2)  # oversample – later filter unique/valid
     unique_smiles = []
     seen = set()
     for smi in sampled:
