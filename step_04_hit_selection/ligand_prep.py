@@ -40,10 +40,21 @@ def pdb_to_pdbqt(pdb_path: Path, pdbqt_path: Path) -> None:
     subprocess.run(cmd, check=True)
 
 
+def is_valid_pdbqt(pdbqt_path: Path) -> bool:
+    """Return True if PDBQT contains at least one ATOM/HETATM line."""
+    try:
+        for line in pdbqt_path.open():
+            if line.startswith(("ATOM", "HETATM")):
+                return True
+    except FileNotFoundError:
+        return False
+    return False
+
+
 def main() -> None:
     src = config.GENERATED_MOLECULES_PATH
     if not src.exists():
-        LOGGER.error("Generated molecules parquet not found: %s", src)
+        LOGGER.error(f"Generated molecules parquet not found: {src}")
         return
 
     df = pl.read_parquet(src)
@@ -55,10 +66,16 @@ def main() -> None:
         if pdbqt_path.exists():
             continue
         if not smiles_to_3d_pdb(smi, pdb_path):
-            LOGGER.warning("Failed to generate 3D for %s", smi)
+            LOGGER.warning(f"Failed to generate 3D for {smi}")
             continue
         pdb_to_pdbqt(pdb_path, pdbqt_path)
-    LOGGER.info("Ligand preparation finished. Files in %s", config.LIGAND_PDBQT_DIR)
+        # Validate conversion – OpenBabel sometimes produces empty PDBQT if unsupported atoms
+        if not is_valid_pdbqt(pdbqt_path):
+            LOGGER.warning(f"OpenBabel failed to create valid PDBQT for {smi} (idx {idx}). Skipping ligand.")
+            pdbqt_path.unlink(missing_ok=True)
+            pdb_path.unlink(missing_ok=True)
+            continue
+    LOGGER.info(f"Ligand preparation finished. Files in {config.LIGAND_PDBQT_DIR}")
 
 
 if __name__ == "__main__":

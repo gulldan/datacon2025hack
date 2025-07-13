@@ -78,7 +78,7 @@ def run_hit_selection_pipeline():
 
     # 3. Молекулярный докинг (для отфильтрованных кандидатов)
     if config.VINA_RESULTS_PATH.exists():
-        LOGGER.info("Using real AutoDock Vina scores from %s", config.VINA_RESULTS_PATH)
+        LOGGER.info(f"Using real AutoDock Vina scores from {config.VINA_RESULTS_PATH}")
         docking_df = pl.read_parquet(config.VINA_RESULTS_PATH)
         docking_df = docking_df.rename({"ligand_id": "smiles"}) if "ligand_id" in docking_df.columns else docking_df
     else:

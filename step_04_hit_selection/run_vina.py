@@ -5,6 +5,8 @@ Writes scores to `config.VINA_RESULTS_PATH`.
 """
 from __future__ import annotations
 
+import re
+import shutil
 import subprocess
 import sys as _sys
 from pathlib import Path
@@ -20,8 +22,19 @@ from utils.logger import LOGGER
 
 VINA_BIN = "vina"  # assume in PATH
 
+# Early check for vina availability
+VINA_AVAILABLE = shutil.which(VINA_BIN) is not None
+
+# Detect whether this Vina build supports --log option
+try:
+    _help_out = subprocess.run([VINA_BIN, "--help"], check=True, capture_output=True, text=True)
+    HAS_LOG_OPTION = "--log" in _help_out.stdout
+except Exception:
+    HAS_LOG_OPTION = False
+
 
 def dock_ligand(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path) -> float | None:
+    global HAS_LOG_OPTION
     cmd = [
         VINA_BIN,
         "--receptor",
@@ -42,39 +55,77 @@ def dock_ligand(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path) -> float | Non
         str(config.BOX_SIZE[2]),
         "--out",
         str(out_pdbqt),
-        "--log",
-        str(log_path),
     ]
+    if HAS_LOG_OPTION:
+        cmd += ["--log", str(log_path)]
+
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        res = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as e:
-        LOGGER.error("Vina failed for %s: %s", lig_pdbqt.name, e)
+        stderr = e.stderr.decode() if e.stderr else ""
+        # If the error is due to unknown --log option, switch flag off globally and retry once
+        if "unrecognised option '--log'" in stderr or "unknown option log" in stderr:
+            HAS_LOG_OPTION = False
+            LOGGER.warning("Detected Vina without --log support. Re-running without log option.")
+            return dock_ligand(lig_pdbqt, out_pdbqt, log_path)
+        LOGGER.error(f"Vina execution failed for {lig_pdbqt.name}: {stderr.strip()} ({e})")
+        return None
+    except FileNotFoundError as e:
+        LOGGER.error(f"Vina binary not found: {e}")
         return None
 
-    # Parse score from log
-    try:
-        for line in log_path.read_text().splitlines():
-            if line.strip().startswith("1 "):  # first pose
-                parts = line.split()
-                return float(parts[1])
-    except Exception:
-        pass
+    # Parse score
+    if HAS_LOG_OPTION and log_path.exists():
+        try:
+            for line in log_path.read_text().splitlines():
+                if line.strip().startswith("1 "):
+                    parts = line.split()
+                    return float(parts[1])
+        except Exception:
+            pass
+    else:
+        # parse from stdout
+        out_text = res.stdout.decode()
+        for line in out_text.splitlines():
+            m = re.match(r"^\s*1\s+(-?\d+\.\d+)", line)
+            if m:
+                return float(m.group(1))
     return None
+
+
+def has_atoms(pdbqt_path: Path) -> bool:
+    try:
+        with pdbqt_path.open() as fh:
+            for line in fh:
+                if line.startswith(("ATOM", "HETATM")):
+                    return True
+    except FileNotFoundError:
+        return False
+    return False
 
 
 def main() -> None:
     receptor = config.PROTEIN_PDBQT_PATH
     if not receptor.exists():
-        LOGGER.error("Receptor file %s not found. Run protein_prep.py first.", receptor)
-        return
+        LOGGER.error(f"Receptor file {receptor} not found. Run protein_prep.py first.")
+        _sys.exit(1)
+
+    if not VINA_AVAILABLE:
+        LOGGER.warning("AutoDock Vina binary not found – will skip docking and return no scores.")
+        _sys.exit(1)
 
     lig_files = sorted(config.LIGAND_PDBQT_DIR.glob("*.pdbqt"))
+    # keep only original ligand files (exclude previously docked outputs)
+    lig_files = [lf for lf in lig_files if not lf.stem.endswith("_dock")]
+    # keep only files that have atoms (skip empty/invalid files)
+    lig_files = [lf for lf in lig_files if has_atoms(lf)]
+
     if not lig_files:
-        LOGGER.error("No ligand PDBQT files found in %s. Run ligand_prep.py first.", config.LIGAND_PDBQT_DIR)
-        return
+        LOGGER.error(f"No ligand PDBQT files found in {config.LIGAND_PDBQT_DIR}. Run ligand_prep.py first.")
+        _sys.exit(1)
 
     results: list[tuple[str, float]] = []
-    LOGGER.info("Docking %d ligands with Vina…", len(lig_files))
+    LOGGER.info(f"Docking {len(lig_files)} ligands with Vina…")
     for lig in lig_files:
         out_pdbqt = lig.with_name(lig.stem + "_dock.pdbqt")
         log_path = lig.with_suffix(".log")
@@ -88,7 +139,7 @@ def main() -> None:
 
     df = pl.DataFrame(results, schema=["ligand_id", "docking_score"])
     df.write_parquet(config.VINA_RESULTS_PATH)
-    LOGGER.info("Docking completed. Scores saved to %s", config.VINA_RESULTS_PATH)
+    LOGGER.info(f"Docking completed. Scores saved to {config.VINA_RESULTS_PATH}")
 
 
 if __name__ == "__main__":

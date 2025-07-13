@@ -9,6 +9,7 @@
 #   • "uv" tool installed (https://github.com/astral-sh/uv).
 #     On macOS:  brew install astral-sh/astral/uv
 #     On Linux :  curl -Ls https://astral.sh/uv/install.sh | bash
+#   • On Arch   :  paru -S openbabel autodock-vina
 #
 # The script is idempotent: it creates a Python 3.11 virtualenv in .venv on the
 # first run and reuses it next time. All project artefacts are written to the
@@ -49,11 +50,12 @@ if [[ ! -d ".venv" ]]; then
 fi
 source .venv/bin/activate
 
+export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 # ---------------------------------------------------------------------------
 # 4. Run pipeline steps sequentially
 # ---------------------------------------------------------------------------
-step "Step 1 – Target selection report"
-uv run python step_01_target_selection/run_target_analysis.py
+# step "Step 1 – Target selection report"
+# uv run python step_01_target_selection/run_target_analysis.py
 
 step "Step 2 – Activity data collection + QSAR model (scaffold split)"
 uv run python step_02_activity_prediction/data_collection.py
