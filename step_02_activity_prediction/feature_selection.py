@@ -38,6 +38,8 @@ OUT_PATH = config.PREDICTION_RESULTS_DIR / "descriptors_filtered.parquet"
 # Correlation threshold – if |corr| > THR the later feature is dropped
 CORR_THRESHOLD = 0.95
 
+PADel_PATH = config.PREDICTION_RESULTS_DIR / "padel_descriptors.parquet"
+
 # ---------------------------------------------------------------------------
 
 
@@ -81,8 +83,25 @@ def main() -> None:
         LOGGER.error("Descriptor matrix not found. Run calc_descriptors.py first.")
         sys.exit(1)
 
-    LOGGER.info("Reading descriptors from %s", DESC_PATH)
+    LOGGER.info("Reading RDKit/Mordred descriptors from %s", DESC_PATH)
     df = pl.read_parquet(DESC_PATH)
+
+    # ------------------------------------------------------------------
+    # Optional: merge PaDEL descriptors
+    # ------------------------------------------------------------------
+
+    if getattr(config, "USE_PADEL_DESCRIPTORS", False) and PADel_PATH.exists():
+        LOGGER.info("Merging PaDEL descriptors from %s", PADel_PATH)
+        df_padel = pl.read_parquet(PADel_PATH)
+
+        # Handle potential duplicate column names (very unlikely, but safe)
+        dup_cols = set(df_padel.columns).intersection(df.columns) - {"SMILES"}
+        if dup_cols:
+            rename_mapping = {c: f"padel_{c}" for c in dup_cols}
+            df_padel = df_padel.rename(rename_mapping)
+
+        df = df.join(df_padel, on="SMILES", how="left")
+        LOGGER.info("Combined descriptor matrix shape after merge: %s", df.shape)
 
     numeric_cols = [c for c in df.columns if c != "SMILES"]
     LOGGER.info("Initial number of descriptor columns: %d", len(numeric_cols))
