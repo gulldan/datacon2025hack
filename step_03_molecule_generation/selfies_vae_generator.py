@@ -33,19 +33,19 @@ dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ---------------------------------------------------------------------------
 # Hyper-parameters
 # ---------------------------------------------------------------------------
-EMBED_DIM = 196
-HIDDEN_DIM = 392
-LATENT_DIM = 128
-NUM_LAYERS = 2
-DROPOUT = 0.2
-BATCH_SIZE = 64
-MAX_LEN = 120  # SELFIES tokens (covers >99 % dataset)
+EMBED_DIM = config.VAE_EMBED_DIM
+HIDDEN_DIM = config.VAE_HIDDEN_DIM
+LATENT_DIM = config.VAE_LATENT_DIM
+NUM_LAYERS = config.VAE_NUM_LAYERS
+DROPOUT = config.VAE_DROPOUT
+BATCH_SIZE = config.VAE_BATCH_SIZE
+MAX_LEN = config.VAE_MAX_LEN  # SELFIES tokens (covers >99 % dataset)
 EPOCHS = config.MAX_VAE_EPOCHS
-LEARNING_RATE = 1e-3
+LEARNING_RATE = config.VAE_LEARNING_RATE
 MODEL_PATH = config.GENERATION_RESULTS_DIR / "selfies_vae.pt"
 SMILES_OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
-GENERATE_N = 2000
-PATIENCE = 4
+GENERATE_N = config.VAE_GENERATE_N
+PATIENCE = config.VAE_PATIENCE
 
 # ---------------------------------------------------------------------------
 # Dataset utilities
@@ -87,7 +87,7 @@ def load_selfies() -> list[str]:
     from rdkit import Chem  # type: ignore
 
     selfies_list: list[str] = []
-    AUG_PER_MOL = 10  # количество рандомных перестановок SMILES
+    AUG_PER_MOL = config.AUG_PER_MOL  # количество рандомных перестановок SMILES
     for smi in smiles_list:
         mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
         if mol is None:
@@ -249,14 +249,21 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
 
     model = SelfiesVAE(len(vocab)).to(dev)
 
-    if MODEL_PATH.exists():
-        model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
-        LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
-    else:
+    def _train_new():
         LOGGER.info("Training SELFIES-VAE model (%d molecules)…", len(selfies_data))
         ds = SelfiesDataset(selfies_data, vocab)
         train(model, ds)
         LOGGER.info("Training finished. Model saved to %s", MODEL_PATH)
+
+    if MODEL_PATH.exists():
+        try:
+            model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
+            LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
+        except RuntimeError as e:
+            LOGGER.warning("Checkpoint mismatch (%s). Re-training VAE from scratch…", str(e).split("\n")[0])
+            _train_new()
+    else:
+        _train_new()
 
     sampled = model.sample(vocab, num=n_samples * 4)  # oversample – later filter unique/valid
     unique_smiles = []

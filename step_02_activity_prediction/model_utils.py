@@ -170,16 +170,21 @@ def predict_smiles(smiles_iter: Iterable[str], model: LinearFpModel | None = Non
         mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
         if mol is None:
             continue
-        fp = smiles_to_fp(smi, n_bits=1024 if not use_linear else 2048)
+        fp_bits = config.FP_BITS_LINEAR if use_linear else config.FP_BITS_XGB
+        fp = smiles_to_fp(smi, n_bits=fp_bits)
         if fp is None:
             continue
         if use_linear:
             arr = fp
         else:
             desc_vals = np.asarray([f(mol) for f in RD_FUNCS], dtype=np.float32)
-            generator_short = GetMorganGenerator(radius=2, fpSize=1024, includeChirality=False)
+            generator_short = GetMorganGenerator(
+                radius=config.FP_RADIUS,
+                fpSize=config.FP_BITS_XGB,
+                includeChirality=config.FP_INCLUDE_CHIRALITY,
+            )
             bv = generator_short.GetFingerprint(mol)
-            fp_arr = np.zeros((1024,), dtype=np.float32)
+            fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
             DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
             arr = np.concatenate([fp_arr, desc_vals])
         feat_batch.append(arr)

@@ -66,9 +66,13 @@ def get_scoring_function(activity_model):
         qed_score = QED.qed(mol)
 
         # 2. Предсказанная активность
-        gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
+        gen = GetMorganGenerator(
+            radius=config.FP_RADIUS,
+            fpSize=config.FP_BITS_LINEAR,
+            includeChirality=config.FP_INCLUDE_CHIRALITY,
+        )
         bv = gen.GetFingerprint(mol)
-        arr = np.zeros((2048,), dtype=np.float32)
+        arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.float32)
         DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
         predicted_pic50 = activity_model.predict(arr.reshape(1, -1))[0]
         # Нормализуем pIC50 (например, цель > 7.0)
@@ -83,7 +87,7 @@ def get_scoring_function(activity_model):
         bbbp_score = calculate_bbbp(smiles)
 
         # 5. Объединение метрик в один скор (взвешенная сумма)
-        weights = {"activity": 0.4, "qed": 0.2, "sa": 0.2, "bbbp": 0.2}
+        weights = config.SCORING_WEIGHTS
 
         final_score = (
             weights["activity"] * activity_score +
@@ -119,7 +123,10 @@ def run_generation_pipeline():
     from step_02_activity_prediction.model_utils import load_model, smiles_to_fp
 
     activity_model = load_model(config.MODEL_PATH)
-    LOGGER.info("Загружены коэффициенты модели активности (%d bits)", len(activity_model.coeffs()))
+    if hasattr(activity_model, "coeffs") and len(activity_model.coeffs()) > 0:  # type: ignore[arg-type]
+        LOGGER.info("Загружены коэффициенты линейной модели (%d bits)", len(activity_model.coeffs()))
+    else:
+        LOGGER.info("Загружена XGBoost модель предсказания активности")
 
     # 3. Создание скоринговой функции
     scoring_function = get_scoring_function(activity_model)
@@ -128,7 +135,7 @@ def run_generation_pipeline():
     from step_03_molecule_generation.selfies_vae_generator import train_and_sample
 
     LOGGER.info("Генерируем молекулы SELFIES-VAE…")
-    generated_smiles_pool: list[str] = train_and_sample(2000)
+    generated_smiles_pool: list[str] = train_and_sample(config.VAE_GENERATE_N)
 
     LOGGER.info(f"Оценка {len(generated_smiles_pool)} сгенерированных молекул...")
 

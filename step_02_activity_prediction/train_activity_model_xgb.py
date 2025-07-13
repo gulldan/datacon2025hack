@@ -35,8 +35,11 @@ RD_DESCS = [
     ("RingCount", Descriptors.RingCount),  # type: ignore[attr-defined]
 ]
 
-FP_BITS = 1024
-_generator = GetMorganGenerator(radius=2, fpSize=FP_BITS, includeChirality=False)
+_generator = GetMorganGenerator(
+    radius=config.FP_RADIUS,
+    fpSize=config.FP_BITS_XGB,
+    includeChirality=config.FP_INCLUDE_CHIRALITY,
+)
 
 
 def compute_features(smiles: str) -> tuple[np.ndarray, float] | None:
@@ -44,7 +47,7 @@ def compute_features(smiles: str) -> tuple[np.ndarray, float] | None:
     if mol is None:
         return None
     bitvect = _generator.GetFingerprint(mol)
-    fp_arr = np.zeros((FP_BITS,), dtype=np.float32)
+    fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
     DataStructs.ConvertToNumpyArray(bitvect, fp_arr)  # type: ignore[arg-type]
     desc_vals = [func(mol) for _, func in RD_DESCS]
     feat = np.concatenate([fp_arr, np.asarray(desc_vals, dtype=np.float32)])
@@ -117,17 +120,14 @@ def main() -> None:
     dtrain = xgb.DMatrix(X[m_train], label=y[m_train])
     dtest = xgb.DMatrix(X[m_test], label=y[m_test])
 
-    params = {
-        "objective": "reg:squarederror",
-        "eval_metric": "rmse",
-        "max_depth": 8,
-        "eta": 0.05,
-        "subsample": 0.9,
-        "colsample_bytree": 0.4,
-        "tree_method": "gpu_hist",
-    }
-    num_round = 600
-    booster = xgb.train(params, dtrain, num_boost_round=num_round, evals=[(dtest, "test")], verbose_eval=50)
+    booster = xgb.train(
+        config.XGB_PARAMS,
+        dtrain,
+        num_boost_round=config.XGB_NUM_BOOST_ROUND,
+        evals=[(dtest, "test")],
+        early_stopping_rounds=config.XGB_EARLY_STOPPING_ROUNDS,
+        verbose_eval=50,
+    )
 
     config.XGB_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(config.XGB_MODEL_PATH))

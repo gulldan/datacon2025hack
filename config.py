@@ -1,4 +1,5 @@
 # config.py
+import os as _os
 from pathlib import Path
 
 # --- Основные пути ---
@@ -16,9 +17,9 @@ TARGET_SELECTION_DIR = BASE_DIR / "step_01_target_selection"
 TARGET_REPORTS_DIR = TARGET_SELECTION_DIR / "reports"
 TARGET_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Выбранная мишень (Пример: GSK-3 beta)
-# CHEMBL ID для GSK3B человека: CHEMBL279
-# PDB ID для структуры с лигандом: например, 1Q41
+# Выбранная мишень
+# CHEMBL ID для DYRK1A человека: CHEMBL3227
+# PDB ID для структуры с лигандом: 6S14
 CHOSEN_TARGET_ID = "CHEMBL3227"
 CHOSEN_PDB_ID = "6S14"
 
@@ -35,12 +36,62 @@ XGB_MODEL_PATH = PREDICTION_RESULTS_DIR / "activity_model_xgb.json"
 EDA_PLOTS_PATH = PREDICTION_RESULTS_DIR / "eda_plots.html"
 FEATURE_IMPORTANCE_PATH = PREDICTION_RESULTS_DIR / "feature_importance.html"
 
+# --- Шаг 2: Параметры модели активности и отпечатков ---
+# Настройки Morgan-отпечатков, используемых при обучении линейных
+# и градиентных моделей (ElasticNet, XGBoost) на этапе 2.
+FP_RADIUS = 2                       # радиус окружения атома
+FP_BITS_LINEAR = 2048               # длина отпечатка для линейной модели
+FP_BITS_XGB = 1024                  # длина отпечатка для XGBoost
+FP_INCLUDE_CHIRALITY = False        # учитывать ли хиральность
+
+# Гиперпараметры XGBoost-модели активности
+XGB_PARAMS = {
+    "objective": "reg:squarederror",
+    "eval_metric": "rmse",
+    "max_depth": 8,
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.4,
+    # Быстрый histogram-бэкэнд с поддержкой GPU (treelite)
+    "tree_method": "hist",
+    "device": "cuda",
+}
+XGB_NUM_BOOST_ROUND = 1000          # число итераций бустинга
+XGB_EARLY_STOPPING_ROUNDS = 100     # early-stopping на валидации
+
 # --- Шаг 3: Генерация молекул ---
 GENERATION_DIR = BASE_DIR / "step_03_molecule_generation"
 GENERATION_RESULTS_DIR = GENERATION_DIR / "results"
 GENERATION_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 GENERATED_MOLECULES_PATH = GENERATION_RESULTS_DIR / "generated_molecules.parquet"
+
+# --- Шаг 3: Гиперпараметры генеративной SELFIES-VAE и скоринга ---
+# Основные размеры сети
+VAE_EMBED_DIM = 196
+VAE_HIDDEN_DIM = 392
+VAE_LATENT_DIM = 128
+VAE_NUM_LAYERS = 2
+VAE_DROPOUT = 0.2
+# Обучение
+VAE_BATCH_SIZE = 64
+VAE_MAX_LEN = 120             # макс. длина SELFIES (токены)
+VAE_LEARNING_RATE = 1e-3
+VAE_PATIENCE = 4
+MAX_VAE_EPOCHS = int(_os.getenv("VAE_EPOCHS", "60"))
+# Выборка после обучения
+VAE_GENERATE_N = 2000
+
+# Аугментация данных (рандомные SMILES на молекулу)
+AUG_PER_MOL = 10
+
+# Весовые коэффициенты финального скоринга генерации (сумма = 1.0)
+SCORING_WEIGHTS = {
+    "activity": 0.4,
+    "qed": 0.2,
+    "sa": 0.2,
+    "bbbp": 0.2,
+}
 
 # --- Шаг 4: Отбор хитов ---
 HIT_SELECTION_DIR = BASE_DIR / "step_04_hit_selection"
@@ -68,12 +119,6 @@ VINA_RESULTS_PATH = DOCKING_DIR / "vina_scores.parquet"
 BOX_CENTER = (16.5, 9.8, 25.7)
 # Size of grid box (Å)
 BOX_SIZE = (20.0, 20.0, 20.0)
-
-# --- Гиперпараметры генеративной модели ---
-# Максимальное число эпох обучения VAE. Можно пробросить через переменную окружения:
-import os as _os
-
-MAX_VAE_EPOCHS = int(_os.getenv("VAE_EPOCHS", "60"))
 
 # --- Параметры моделей ---
 RANDOM_STATE = 42
