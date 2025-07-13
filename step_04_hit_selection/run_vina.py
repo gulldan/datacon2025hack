@@ -115,6 +115,10 @@ def has_atoms(pdbqt_path: Path) -> bool:
 
 
 def main() -> None:
+    if not getattr(config, "USE_VINA_DOCKING", True):
+        LOGGER.info("USE_VINA_DOCKING flag is False – skipping AutoDock Vina execution.")
+        return
+
     receptor = config.PROTEIN_PDBQT_PATH
     if not receptor.exists():
         LOGGER.error(f"Receptor file {receptor} not found. Run protein_prep.py first.")

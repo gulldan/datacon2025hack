@@ -31,6 +31,26 @@ torch.manual_seed(SEED)
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ---------------------------------------------------------------------------
+# Override hyper-parameters with Optuna-tuned best params (if any)
+# ---------------------------------------------------------------------------
+
+_BEST_VAE_JSON = config.GENERATION_RESULTS_DIR / "optuna_vae_best.json"
+if _BEST_VAE_JSON.exists():
+    import json as _json
+
+    best_conf = _json.loads(_BEST_VAE_JSON.read_text())
+    _params = best_conf.get("params", {})
+    globals().update({
+        "EMBED_DIM": _params.get("embed_dim", config.VAE_EMBED_DIM),
+        "HIDDEN_DIM": _params.get("hidden_dim", config.VAE_HIDDEN_DIM),
+        "LATENT_DIM": _params.get("latent_dim", config.VAE_LATENT_DIM),
+        "BATCH_SIZE": _params.get("batch_size", config.VAE_BATCH_SIZE),
+        "LEARNING_RATE": _params.get("lr", config.VAE_LEARNING_RATE),
+        "DROPOUT": _params.get("dropout", config.VAE_DROPOUT),
+    })
+    LOGGER.info("Loaded tuned VAE parameters from %s", _BEST_VAE_JSON)
+
+# ---------------------------------------------------------------------------
 # Hyper-parameters
 # ---------------------------------------------------------------------------
 EMBED_DIM = config.VAE_EMBED_DIM
@@ -253,6 +273,12 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
     vocab = Vocab(all_tokens)
 
     model = SelfiesVAE(len(vocab)).to(dev)
+
+    # Optuna hyperparameter tuning (placeholder)
+    if getattr(config, "OPTUNA_TUNE_VAE", False):
+        from step_03_molecule_generation import optuna_tune_vae
+
+        optuna_tune_vae.main()
 
     def _train_new():
         LOGGER.info("Training SELFIES-VAE model (%d molecules)…", len(selfies_data))

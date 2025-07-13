@@ -75,6 +75,7 @@ def descriptors(smiles: str):
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if mol is None:
         return None
+    ring_count = mol.GetRingInfo().NumRings()  # type: ignore[attr-defined]
     return {
         "qed": QED.qed(mol),
         "sa_score": sa_score(smiles),
@@ -84,6 +85,7 @@ def descriptors(smiles: str):
         "hbd": rdMolDescriptors.CalcNumHBD(mol),
         "hba": rdMolDescriptors.CalcNumHBA(mol),
         "rotb": rdMolDescriptors.CalcNumRotatableBonds(mol),
+        "ring_count": ring_count,
     }
 
 # -----------------------------------------------------------------------------
@@ -128,6 +130,29 @@ def bbb_permeability_prob(desc: dict) -> float:
     return float(_logistic(score))
 
 # -----------------------------------------------------------------------------
+# Simple CYP450 inhibition & hepatotoxicity placeholders
+# -----------------------------------------------------------------------------
+
+
+def cyp_inhibition_prob(desc: dict, iso: str = "3A4") -> float:
+    """Heuristic probability of inhibiting CYP450 isoform (0-1)."""
+    b0 = -5.0
+    coeff = {
+        "logp": 1.2,
+        "molwt": 0.02,
+        "ring_count": 0.6,
+    }
+    score = b0 + coeff["logp"] * desc["logp"] + coeff["molwt"] * desc["molwt"] + coeff["ring_count"] * desc["ring_count"]
+    return float(_logistic(score))
+
+
+def hepatotoxicity_prob(desc: dict) -> float:
+    """Heuristic probability of liver toxicity."""
+    b0 = -3.0
+    score = b0 + 0.8 * desc["logp"] + 0.01 * desc["molwt"] + 0.05 * desc["hba"] + 0.5 * desc["ring_count"]
+    return float(_logistic(score))
+
+# -----------------------------------------------------------------------------
 # Main pipeline
 # -----------------------------------------------------------------------------
 
@@ -148,13 +173,21 @@ def main() -> None:
         if d is None:
             continue
         d["bbbp_prob"] = bbb_permeability_prob(d)
+
+        # CYP & hepatotox preds
+        if config.USE_CYP450_FILTERS:
+            for iso in config.CYP450_ISOFORMS:
+                d[f"cyp{iso}_prob"] = cyp_inhibition_prob(d, iso)
+        if config.USE_HEPATOTOX_FILTER:
+            d["hepatotox_prob"] = hepatotoxicity_prob(d)
+
         desc_list.append({"smiles": smi, **d})
 
     desc_df = pl.DataFrame(desc_list)
 
     # Apply drug-likeness filters (T7)
     LOGGER.info("Applying drug-likeness filters…")
-    filtered = desc_df.filter(
+    filters_expr = (
         (pl.col("qed") > 0.6)
         & (pl.col("sa_score") < 5.0)
         & (pl.col("tpsa") < 90.0)
@@ -162,8 +195,17 @@ def main() -> None:
         & (pl.col("molwt") > 100.0)
         & (pl.col("logp") > 1.0)
         & (pl.col("logp") < 4.0)
-        # BBB permeability probability will be filtered later in hit selection
     )
+
+    # ADMET filters
+    if config.USE_CYP450_FILTERS:
+        for iso in config.CYP450_ISOFORMS:
+            filters_expr &= pl.col(f"cyp{iso}_prob") < 0.7  # keep if low inhibition probability
+
+    if config.USE_HEPATOTOX_FILTER:
+        filters_expr &= pl.col("hepatotox_prob") < 0.6
+
+    filtered = desc_df.filter(filters_expr)
     LOGGER.info("After drug-likeness filters: %d molecules.", len(filtered))
 
     if len(filtered) == 0:

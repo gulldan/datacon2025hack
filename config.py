@@ -65,6 +65,12 @@ GENERATION_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 GENERATED_MOLECULES_PATH = GENERATION_RESULTS_DIR / "generated_molecules.parquet"
 
+# --- Шаг 3: Конфигурация генераторов ---
+# Выбор генеративной модели: "selfies_vae" | "graph_flow" (будущий T21)
+GENERATOR_TYPE = "selfies_vae"
+# Путь к сохранённой модели генерации графов (если выбран graph_flow)
+GRAPH_FLOW_MODEL_PATH = GENERATION_RESULTS_DIR / "graph_flow.pt"
+
 # --- Шаг 3: Гиперпараметры генеративной SELFIES-VAE и скоринга ---
 # Основные размеры сети
 VAE_EMBED_DIM = 196
@@ -95,6 +101,21 @@ SCORING_WEIGHTS = {
     "sa": 0.2,
     "bbbp": 0.2,
 }
+
+# --- ADMET фильтры ---
+USE_CYP450_FILTERS = True                # применять ли CYP450 фильтр
+CYP450_ISOFORMS = ["1A2", "2C9", "2C19", "2D6", "3A4"]  # ключевые изоферменты
+USE_HEPATOTOX_FILTER = True              # фильтр потенциальной гепатотоксичности
+
+# --- Optuna автоматический подбор гиперпараметров ---
+OPTUNA_TUNE_XGB = False                  # вкл/выкл поиск для XGBoost
+OPTUNA_TUNE_VAE = False                  # вкл/выкл поиск для VAE/генераторов
+OPTUNA_STUDIES_DIR = BASE_DIR / "optuna_studies"
+OPTUNA_STUDIES_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- Docking parameters ---
+# Позволяет отключить реальный запуск AutoDock Vina (например, если не установлен)
+USE_VINA_DOCKING = True
 
 # --- Шаг 4: Отбор хитов ---
 HIT_SELECTION_DIR = BASE_DIR / "step_04_hit_selection"

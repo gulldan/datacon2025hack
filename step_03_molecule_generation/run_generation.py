@@ -131,11 +131,24 @@ def run_generation_pipeline():
     # 3. Создание скоринговой функции
     scoring_function = get_scoring_function(activity_model)
 
-    # 4. Генерация молекул при помощи SELFIES-VAE
-    from step_03_molecule_generation.selfies_vae_generator import train_and_sample
+    # 4. Генерация молекул согласно выбранному типу
+    if config.GENERATOR_TYPE == "selfies_vae":
+        from step_03_molecule_generation.selfies_vae_generator import train_and_sample
 
-    LOGGER.info("Генерируем молекулы SELFIES-VAE…")
-    generated_smiles_pool: list[str] = train_and_sample(config.VAE_GENERATE_N)
+        LOGGER.info("Генерируем молекулы SELFIES-VAE…")
+        generated_smiles_pool: list[str] = train_and_sample(config.VAE_GENERATE_N)
+    elif config.GENERATOR_TYPE == "graph_flow":
+        try:
+            from step_03_molecule_generation.graph_generator import train_and_sample
+        except ImportError:
+            LOGGER.error("Graph generator module not found. Ensure T21 is implemented.")
+            return
+
+        LOGGER.info("Генерируем молекулы Graph-Flow…")
+        generated_smiles_pool = train_and_sample(config.VAE_GENERATE_N)
+    else:
+        LOGGER.error("Unknown GENERATOR_TYPE '%s' in config.py", config.GENERATOR_TYPE)
+        return
 
     LOGGER.info(f"Оценка {len(generated_smiles_pool)} сгенерированных молекул...")
 

@@ -100,6 +100,12 @@ def scaffold_split(df: pl.DataFrame, test_frac: float = 0.2, seed: int = 42):
 
 
 def main() -> None:
+    if getattr(config, "OPTUNA_TUNE_XGB", False):
+        LOGGER.info("OPTUNA_TUNE_XGB flag is True – delegating to optuna_tune_xgb.py …")
+        from step_02_activity_prediction import optuna_tune_xgb
+
+        optuna_tune_xgb.main()
+        return
     LOGGER.info("--- Training XGBoost model (GPU) ---")
     df = load_dataset()
 
