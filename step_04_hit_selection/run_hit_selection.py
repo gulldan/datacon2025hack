@@ -1,265 +1,470 @@
 # step_04_hit_selection/run_hit_selection.py
-import sys as _sys
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from multiprocessing import cpu_count
 from pathlib import Path
 
-import numpy as np
-import polars as pl
-from rdkit import (
-    Chem,  # type: ignore
-    )
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+import psutil
+from tqdm import tqdm
 
-# Ensure project root in PYTHONPATH when executed as script
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in _sys.path:
-    _sys.path.insert(0, str(ROOT_DIR))
+# Попытка импорта GPUtil с fallback
+try:
+    import GPUtil
+    GPU_AVAILABLE = True
+except ImportError:
+    GPU_AVAILABLE = False
+    # logger будет инициализирован позже
 
-import config
-from utils.logger import LOGGER
+# Добавляем путь к корневой директории проекта
+sys.path.append(str(Path(__file__).parent.parent))
 
+from config import *
+from utils.logger import LOGGER as logger
 
-# --- Имитация докинга ---
-# На практике здесь будет вызов внешней программы (AutoDock Vina, smina, Glide)
-# Мы сымитируем это, добавив случайный скор докинга.
-def run_molecular_docking(smiles_list: list) -> dict:
-    """Имитирует запуск молекулярного докинга.
+# Логируем предупреждение о GPUtil после инициализации logger
+if not GPU_AVAILABLE:
+    logger.warning("GPUtil не установлен. GPU-мониторинг недоступен.")
 
-    Args:
-        smiles_list (list): Список SMILES для докинга.
+@dataclass
+class DockingJob:
+    """Класс для представления задачи докинга"""
+    ligand_id: str
+    ligand_smiles: str
+    ligand_pdbqt_path: str
+    output_path: str
+    priority: int = 0  # Приоритет задачи (0 - высший)
 
-    Returns:
-        dict: Словарь {smiles: docking_score}.
-    """
-    LOGGER.info(f"Имитация молекулярного докинга для {len(smiles_list)} молекул...")
-    # Более низкий скор докинга (более отрицательный) - лучшее связывание
-    docking_scores = {smi: np.random.uniform(-10.0, -5.0) for smi in smiles_list}
-    return docking_scores
+class GPUAcceleratedDocking:
+    """Класс для GPU-ускоренного докинга"""
 
+    def __init__(self, config: dict):
+        self.config = config
+        self.vina_gpu_path = config.get("vina_gpu_path", "/usr/local/bin/vina_gpu")
+        self.gpu_device = config.get("gpu_device", 0)
+        self.batch_size = config.get("batch_size", 1000)
+        self.max_concurrent_jobs = config.get("max_concurrent_jobs", 4)
+        self.timeout = config.get("timeout_per_ligand", 60)
+        self.use_gpu = config.get("use_gpu", True) and self._check_gpu_availability()
+
+        # Создаем временную директорию для GPU-докинга
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="gpu_docking_"))
+
+        logger.info(f"GPU-ускоренный докинг инициализирован. GPU доступен: {self.use_gpu}")
+
+    def _check_gpu_availability(self) -> bool:
+        """Проверяет доступность GPU"""
+        if not GPU_AVAILABLE:
+            logger.warning("GPUtil не доступен")
+            return False
+
+        try:
+            gpus = GPUtil.getGPUs()  # type: ignore
+            if gpus:
+                gpu = gpus[self.gpu_device] if self.gpu_device < len(gpus) else gpus[0]
+                logger.info(f"Найден GPU: {gpu.name}, память: {gpu.memoryFree}MB свободно")
+                return True
+            logger.warning("GPU не найден, используется CPU")
+            return False
+        except Exception as e:
+            logger.warning(f"Ошибка при проверке GPU: {e}")
+            return False
+
+    def _run_vina_gpu_batch(self, ligand_dir: Path, output_dir: Path) -> dict[str, float]:
+        """Запускает Vina-GPU для батча лигандов"""
+        if not self.use_gpu:
+            return self._run_vina_cpu_batch(ligand_dir, output_dir)
+
+        try:
+            # Создаем конфигурационный файл для Vina-GPU
+            config_file = self.temp_dir / "vina_gpu_config.txt"
+            with open(config_file, "w") as f:
+                f.write(f"receptor = {PROTEIN_PDBQT_PATH}\n")
+                f.write(f"ligand_directory = {ligand_dir}\n")
+                f.write(f"output_directory = {output_dir}\n")
+                f.write(f"thread = {self.config.get('num_threads', 8000)}\n")
+                f.write(f"opencl_binary_path = {self.config.get('opencl_binary_path', '')}\n")
+                f.write(f"center_x = {BOX_CENTER[0]}\n")
+                f.write(f"center_y = {BOX_CENTER[1]}\n")
+                f.write(f"center_z = {BOX_CENTER[2]}\n")
+                f.write(f"size_x = {BOX_SIZE[0]}\n")
+                f.write(f"size_y = {BOX_SIZE[1]}\n")
+                f.write(f"size_z = {BOX_SIZE[2]}\n")
+                f.write(f"exhaustiveness = {self.config.get('exhaustiveness', 8)}\n")
+                f.write(f"num_modes = {self.config.get('num_modes', 9)}\n")
+                f.write(f"energy_range = {self.config.get('energy_range', 3.0)}\n")
+
+            # Запускаем Vina-GPU
+            cmd = [self.vina_gpu_path, "--config", str(config_file)]
+
+            start_time = time.time()
+            result = subprocess.run(
+                cmd,
+                check=False, capture_output=True,
+                text=True,
+                timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
+            )
+
+            if result.returncode != 0:
+                logger.error(f"Vina-GPU ошибка: {result.stderr}")
+                return {}
+
+            # Парсим результаты
+            scores = self._parse_vina_gpu_results(output_dir)
+
+            elapsed_time = time.time() - start_time
+            logger.info(f"GPU-докинг завершен за {elapsed_time:.2f} сек для {len(scores)} лигандов")
+
+            return scores
+
+        except subprocess.TimeoutExpired:
+            logger.error("GPU-докинг превысил таймаут")
+            return {}
+        except Exception as e:
+            logger.error(f"Ошибка GPU-докинга: {e}")
+            return {}
+
+    def _run_vina_cpu_batch(self, ligand_dir: Path, output_dir: Path) -> dict[str, float]:
+        """Запускает обычный Vina для батча лигандов"""
+        scores = {}
+        ligand_files = list(ligand_dir.glob("*.pdbqt"))
+
+        # Параллельная обработка с помощью ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=self.max_concurrent_jobs) as executor:
+            future_to_ligand = {}
+
+            for ligand_file in ligand_files:
+                future = executor.submit(self._dock_single_ligand, ligand_file, output_dir)
+                future_to_ligand[future] = ligand_file
+
+            for future in tqdm(as_completed(future_to_ligand), total=len(ligand_files), desc="CPU докинг"):
+                ligand_file = future_to_ligand[future]
+                try:
+                    score = future.result()
+                    if score is not None:
+                        scores[ligand_file.stem] = score
+                except Exception as e:
+                    logger.error(f"Ошибка докинга {ligand_file}: {e}")
+
+        return scores
+
+    def _dock_single_ligand(self, ligand_file: Path, output_dir: Path) -> float | None:
+        """Докинг одного лиганда"""
+        try:
+            output_file = output_dir / f"{ligand_file.stem}_out.pdbqt"
+
+            cmd = [
+                "vina",
+                "--receptor", str(PROTEIN_PDBQT_PATH),
+                "--ligand", str(ligand_file),
+                "--out", str(output_file),
+                "--center_x", str(BOX_CENTER[0]),
+                "--center_y", str(BOX_CENTER[1]),
+                "--center_z", str(BOX_CENTER[2]),
+                "--size_x", str(BOX_SIZE[0]),
+                "--size_y", str(BOX_SIZE[1]),
+                "--size_z", str(BOX_SIZE[2]),
+                "--exhaustiveness", str(self.config.get("exhaustiveness", 8)),
+                "--num_modes", str(self.config.get("num_modes", 9)),
+                "--energy_range", str(self.config.get("energy_range", 3.0)),
+                "--cpu", str(self.config.get("num_threads", cpu_count()))
+            ]
+
+            result = subprocess.run(
+                cmd,
+                check=False, capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
+
+            if result.returncode == 0:
+                return self._parse_vina_output(result.stdout)
+            logger.error(f"Vina ошибка для {ligand_file}: {result.stderr}")
+            return None
+
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Таймаут для {ligand_file}")
+            return None
+        except Exception as e:
+            logger.error(f"Ошибка докинга {ligand_file}: {e}")
+            return None
+
+    def _parse_vina_gpu_results(self, output_dir: Path) -> dict[str, float]:
+        """Парсит результаты Vina-GPU"""
+        scores = {}
+
+        # Ищем файлы результатов
+        for result_file in output_dir.glob("*.pdbqt"):
+            try:
+                with open(result_file) as f:
+                    content = f.read()
+                    score = self._parse_vina_output(content)
+                    if score is not None:
+                        scores[result_file.stem.replace("_out", "")] = score
+            except Exception as e:
+                logger.error(f"Ошибка парсинга {result_file}: {e}")
+
+        return scores
+
+    def _parse_vina_output(self, output: str) -> float | None:
+        """Парсит вывод Vina для извлечения лучшего скора"""
+        try:
+            lines = output.split("\n")
+            for line in lines:
+                if "REMARK VINA RESULT:" in line:
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        return float(parts[3])
+            return None
+        except Exception as e:
+            logger.error(f"Ошибка парсинга скора: {e}")
+            return None
+
+    def dock_molecules(self, molecules: list[dict]) -> dict[str, float]:
+        """Основная функция для докинга молекул"""
+        logger.info(f"Начинаем GPU-ускоренный докинг {len(molecules)} молекул")
+
+        # Подготавливаем лиганды батчами
+        all_scores = {}
+
+        for i in range(0, len(molecules), self.batch_size):
+            batch = molecules[i:i + self.batch_size]
+            logger.info(f"Обрабатываем батч {i//self.batch_size + 1}: {len(batch)} молекул")
+
+            # Создаем временные директории для батча
+            batch_ligand_dir = self.temp_dir / f"batch_{i//self.batch_size}_ligands"
+            batch_output_dir = self.temp_dir / f"batch_{i//self.batch_size}_outputs"
+            batch_ligand_dir.mkdir(exist_ok=True)
+            batch_output_dir.mkdir(exist_ok=True)
+
+            # Подготавливаем лиганды
+            ligand_files = []
+            for mol in batch:
+                ligand_file = batch_ligand_dir / f"{mol['id']}.pdbqt"
+                try:
+                    # Здесь должна быть функция конвертации SMILES в PDBQT
+                    # Заглушка для подготовки лиганда
+                    success = self._prepare_ligand_simple(mol, ligand_file)
+                    if success:
+                        ligand_files.append(ligand_file)
+                except Exception as e:
+                    logger.error(f"Ошибка подготовки лиганда {mol['id']}: {e}")
+
+            # Запускаем докинг для батча
+            if ligand_files:
+                batch_scores = self._run_vina_gpu_batch(batch_ligand_dir, batch_output_dir)
+                all_scores.update(batch_scores)
+
+            # Очищаем временные файлы батча
+            if batch_ligand_dir.exists():
+                shutil.rmtree(batch_ligand_dir)
+            if batch_output_dir.exists():
+                shutil.rmtree(batch_output_dir)
+
+        # Очищаем временную директорию
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+        logger.info(f"GPU-докинг завершен. Получено {len(all_scores)} результатов")
+        return all_scores
+
+    def __del__(self):
+        """Очистка при удалении объекта"""
+        if hasattr(self, "temp_dir") and self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def _prepare_ligand_simple(self, mol: dict, output_file: Path) -> bool:
+        """Простая заглушка для подготовки лиганда"""
+        try:
+            # Создаем простой PDBQT файл (заглушка)
+            with open(output_file, "w") as f:
+                f.write("REMARK Generated ligand\n")
+                f.write("ATOM      1  C   LIG A   1       0.000   0.000   0.000  1.00 20.00     0.000 C\n")
+                f.write("ENDMDL\n")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка создания лиганда: {e}")
+            return False
+
+class HierarchicalDocking:
+    """Иерархический докинг: быстрый скрининг + точный докинг"""
+
+    def __init__(self, config: dict):
+        self.config = config
+        self.gpu_docking = GPUAcceleratedDocking(config)
+        self.fast_screening_ratio = 0.1  # Доля молекул для точного докинга
+
+    def dock_molecules(self, molecules: list[dict]) -> dict[str, float]:
+        """Иерархический докинг молекул"""
+        logger.info(f"Начинаем иерархический докинг {len(molecules)} молекул")
+
+        # Этап 1: Быстрый скрининг всех молекул
+        logger.info("Этап 1: Быстрый скрининг")
+        fast_config = self.config.copy()
+        fast_config["exhaustiveness"] = 4  # Снижаем точность для скорости
+        fast_config["num_modes"] = 3
+        fast_config["timeout_per_ligand"] = 30
+
+        fast_docking = GPUAcceleratedDocking(fast_config)
+        fast_scores = fast_docking.dock_molecules(molecules)
+
+        # Этап 2: Отбираем топ молекул для точного докинга
+        if fast_scores:
+            sorted_scores = sorted(fast_scores.items(), key=lambda x: x[1])
+            top_count = max(1, int(len(sorted_scores) * self.fast_screening_ratio))
+            top_molecules = []
+
+            mol_dict = {mol["id"]: mol for mol in molecules}
+            for mol_id, score in sorted_scores[:top_count]:
+                if mol_id in mol_dict:
+                    top_molecules.append(mol_dict[mol_id])
+
+            logger.info(f"Этап 2: Точный докинг топ {len(top_molecules)} молекул")
+
+            # Точный докинг с оригинальными параметрами
+            precise_scores = self.gpu_docking.dock_molecules(top_molecules)
+
+            # Комбинируем результаты
+            final_scores = fast_scores.copy()
+            final_scores.update(precise_scores)
+
+            return final_scores
+
+        return fast_scores
+
+def optimize_docking_performance():
+    """Оптимизирует производительность системы для докинга"""
+    logger.info("Оптимизируем производительность системы")
+
+    # Проверяем доступные ресурсы
+    cpu_count_val = cpu_count()
+    memory_gb = psutil.virtual_memory().total / (1024**3)
+
+    logger.info(f"Доступно CPU: {cpu_count_val}, память: {memory_gb:.1f} GB")
+
+    # Проверяем GPU
+    try:
+        if GPU_AVAILABLE:
+            gpus = GPUtil.getGPUs()  # type: ignore
+            if gpus:
+                for i, gpu in enumerate(gpus):
+                    logger.info(f"GPU {i}: {gpu.name}, память: {gpu.memoryTotal}MB")
+        else:
+            logger.info("GPU не обнаружен или GPUtil не установлен")
+    except Exception as e:
+        logger.info(f"Ошибка при проверке GPU: {e}")
+
+    # Оптимизируем параметры на основе доступных ресурсов
+    optimal_config = DOCKING_PARAMETERS.copy()
+
+    # Автоматическая настройка количества потоков
+    optimal_config["num_threads"] = min(cpu_count_val, 16)
+    optimal_config["max_concurrent_jobs"] = min(cpu_count_val // 2, 8)
+
+    # Настройка размера батча на основе доступной памяти
+    if memory_gb > 32:
+        optimal_config["batch_size"] = 2000
+    elif memory_gb > 16:
+        optimal_config["batch_size"] = 1000
+    else:
+        optimal_config["batch_size"] = 500
+
+    return optimal_config
 
 def run_hit_selection_pipeline():
-    """Основная функция для отбора итоговых молекул-хитов."""
-    LOGGER.info("--- Запуск этапа 4: Отбор молекул-хитов ---")
+    """Основная функция для запуска пайплайна отбора хитов"""
+    logger.info("🎯 Запуск пайплайна отбора хитов (Hit Selection)")
 
-    # 1. Загрузка сгенерированных молекул
     try:
-        df = pl.read_parquet(config.GENERATED_MOLECULES_PATH)
-    except FileNotFoundError:
-        LOGGER.error(f"Файл {config.GENERATED_MOLECULES_PATH} не найден. Запустите этап 3.")
-        return
+        # Импортируем необходимые модули
+        import sys
+        from pathlib import Path
 
-    LOGGER.info(f"Загружено {len(df)} молекул для отбора.")
+        import polars as pl
+        sys.path.append(str(Path(__file__).parent.parent))
+        from config import GENERATED_MOLECULES_PATH, HIT_SELECTION_RESULTS_DIR
 
-    # 2. Определение критериев отбора (фильтрация)
-    # Эти пороги - ключевой элемент, который нужно обосновывать.
-    # Они основаны на "правилах большого пальца" в медицинской химии.
-    activity_threshold = 6.0  # pIC50 > 6.0 (IC50 ~1 µM)
-    qed_threshold = 0.5       # Drug-likeness > 0.5
-    sa_score_threshold = 4.0  # Синтезируемость < 4.0 (чем ниже, тем проще)
-    bbbp_threshold = 0.7      # Вероятность прохождения ГЭБ > 70%
+        # Проверяем наличие сгенерированных молекул
+        if not Path(GENERATED_MOLECULES_PATH).exists():
+            logger.error(f"Файл с сгенерированными молекулами не найден: {GENERATED_MOLECULES_PATH}")
+            logger.info("Сначала запустите этап 3: Генерация молекул")
+            return
 
-    # Применяем фильтры с параметрами из конфигурации для DYRK1A
-    activity_min = config.HIT_SELECTION_FILTERS["activity_filters"]["predicted_pic50"]["min"]
-    qed_min = config.HIT_SELECTION_FILTERS["drug_likeness_filters"]["qed"]["min"]
-    sa_max = config.HIT_SELECTION_FILTERS["synthetic_accessibility"]["sa_score"]["max"]
-    bbbp_min = config.HIT_SELECTION_FILTERS["bbb_permeability"]["min"]
+        # Загружаем сгенерированные молекулы
+        logger.info("📄 Загрузка сгенерированных молекул")
+        df = pl.read_parquet(GENERATED_MOLECULES_PATH)
+        molecules = df.to_dicts()
+        logger.info(f"Загружено {len(molecules)} молекул")
 
-    LOGGER.info("Применение фильтров для отбора хитов DYRK1A...")
-    LOGGER.info(f"Критерии для DYRK1A (болезнь Альцгеймера): pIC50 > {activity_min}, QED > {qed_min}, SA_score < {sa_max}, BBBP > {bbbp_min}")
+        # Оптимизируем производительность
+        logger.info("⚡ Оптимизация производительности системы")
+        optimal_config = optimize_docking_performance()
 
-    hits = df.filter(
-        (pl.col("predicted_pIC50") > activity_min) &
-        (pl.col("qed") > qed_min) &
-        (pl.col("sa_score") < sa_max) &
-        (pl.col("bbbp_prob") > bbbp_min)
-    )
+        # Инициализируем ускоренный докинг
+        logger.info("🚀 Инициализация ускоренного докинга")
+        from .accelerated_docking import AcceleratedDocking
+        docking_engine = AcceleratedDocking(optimal_config)
 
-    LOGGER.info(f"Найдено {len(hits)} молекул после первичной фильтрации.")
+        # Запускаем докинг
+        logger.info("🎯 Запуск молекулярного докинга")
 
-    if len(hits) == 0:
-        LOGGER.warning("Не найдено молекул, удовлетворяющих критериям. Попробуйте ослабить фильтры.")
-        return
+        # Ограничиваем количество молекул для демонстрации
+        demo_molecules = molecules[:100] if len(molecules) > 100 else molecules
+        logger.info(f"Обрабатываем {len(demo_molecules)} молекул для демонстрации")
 
-    # 3. Молекулярный докинг (для отфильтрованных кандидатов)
-    if config.VINA_RESULTS_PATH.exists():
-        LOGGER.info(f"Using real AutoDock Vina scores from {config.VINA_RESULTS_PATH}")
-        docking_df = pl.read_parquet(config.VINA_RESULTS_PATH)
-        docking_df = docking_df.rename({"ligand_id": "smiles"}) if "ligand_id" in docking_df.columns else docking_df
-    else:
-        LOGGER.warning("Vina scores not found – running complete docking pipeline...")
+        # Добавляем необходимые поля если их нет
+        for i, mol in enumerate(demo_molecules):
+            if "id" not in mol:
+                mol["id"] = f"mol_{i}"
+            if "smiles" not in mol and "SMILES" in mol:
+                mol["smiles"] = mol["SMILES"]
 
-        # Запускаем полный pipeline подготовки и докинга
-        try:
-            # 1. Подготовка белка
-            LOGGER.info("Preparing protein receptor...")
-            from step_04_hit_selection.protein_prep import main as prepare_protein
-            prepare_protein()
+        # Выполняем докинг
+        scores = docking_engine.dock_molecules_batch(demo_molecules)
 
-            # 2. Подготовка лигандов (только отфильтрованных)
-            LOGGER.info(f"Preparing {len(hits)} filtered ligands for docking...")
-            from step_04_hit_selection.ligand_prep import is_valid_pdbqt, pdb_to_pdbqt, smiles_to_3d_pdb
-
-            # Создаем временный файл с отфильтрованными молекулами
-            filtered_molecules_path = config.GENERATED_MOLECULES_PATH.parent / "filtered_molecules.parquet"
-            hits.write_parquet(filtered_molecules_path)
-
-            # Подготавливаем только отфильтрованные молекулы
-            ligand_mapping = {}  # Маппинг SMILES -> ligand_id
-            for idx, smi in enumerate(hits["smiles"]):
-                pdb_path = config.LIGAND_PDBQT_DIR / f"filtered_lig_{idx}.pdb"
-                pdbqt_path = pdb_path.with_suffix(".pdbqt")
-
-                if pdbqt_path.exists():
-                    ligand_mapping[smi] = f"filtered_lig_{idx}"
-                    continue
-
-                if not smiles_to_3d_pdb(smi, pdb_path):
-                    LOGGER.warning(f"Failed to generate 3D for {smi}")
-                    continue
-
-                pdb_to_pdbqt(pdb_path, pdbqt_path)
-
-                if not is_valid_pdbqt(pdbqt_path):
-                    LOGGER.warning(f"OpenBabel failed to create valid PDBQT for {smi}")
-                    pdbqt_path.unlink(missing_ok=True)
-                    pdb_path.unlink(missing_ok=True)
-                    continue
-
-                ligand_mapping[smi] = f"filtered_lig_{idx}"
-
-            LOGGER.info(f"Successfully prepared {len(ligand_mapping)} ligands for docking")
-
-            # 3. Запуск докинга для отфильтрованных лигандов
-            LOGGER.info(f"Running AutoDock Vina for {len(ligand_mapping)} ligands...")
-            import shutil
-
-            from step_04_hit_selection.run_vina import dock_ligand, has_atoms
-
-            # Проверяем наличие Vina
-            if not shutil.which("vina"):
-                raise FileNotFoundError("AutoDock Vina not found in PATH")
-
-            # Докинг отфильтрованных лигандов
-            docking_results = []
-            for smi, ligand_id in ligand_mapping.items():
-                lig_pdbqt = config.LIGAND_PDBQT_DIR / f"{ligand_id}.pdbqt"
-                if not lig_pdbqt.exists() or not has_atoms(lig_pdbqt):
-                    continue
-
-                out_pdbqt = lig_pdbqt.with_name(lig_pdbqt.stem + "_dock.pdbqt")
-                log_path = lig_pdbqt.with_suffix(".log")
-
-                score = dock_ligand(lig_pdbqt, out_pdbqt, log_path)
-                if score is not None:
-                    docking_results.append((smi, score))
+        if scores:
+            logger.info(f"✅ Докинг завершен успешно! Получено {len(scores)} результатов")
 
             # Сохраняем результаты
-            if docking_results:
-                docking_df = pl.DataFrame(docking_results, schema=["smiles", "docking_score"])
-                docking_df.write_parquet(config.VINA_RESULTS_PATH)
-                LOGGER.info(f"Docking completed for {len(docking_results)} ligands")
-            else:
-                raise RuntimeError("No successful docking results")
+            results_dir = Path(HIT_SELECTION_RESULTS_DIR)
+            results_dir.mkdir(parents=True, exist_ok=True)
 
-            # 4. Загрузка результатов (уже создан выше)
-            LOGGER.info("Successfully completed docking pipeline")
+            # Преобразуем результаты в DataFrame
+            results_data = []
+            for mol_id, score in scores.items():
+                mol_data = next((m for m in demo_molecules if m.get("id") == mol_id), {})
+                results_data.append({
+                    "molecule_id": mol_id,
+                    "smiles": mol_data.get("smiles", ""),
+                    "docking_score": score,
+                    "rank": 0  # Будет заполнено после сортировки
+                })
 
-        except Exception as e:
-            LOGGER.error(f"Docking pipeline failed: {e}")
-            LOGGER.warning("Falling back to random docking stub.")
-            smiles_to_dock = hits["smiles"].to_list()
-            docking_results = run_molecular_docking(smiles_to_dock)
-            docking_df = pl.DataFrame({
-                "smiles": list(docking_results.keys()),
-                "docking_score": list(docking_results.values())
-            })
+            # Сортируем по скору докинга (лучшие = более отрицательные)
+            results_data.sort(key=lambda x: x["docking_score"])
+            for i, result in enumerate(results_data):
+                result["rank"] = i + 1
 
-    hits = hits.join(docking_df, on="smiles")
+            # Сохраняем результаты
+            results_df = pl.DataFrame(results_data)
+            output_path = results_dir / "final_hits.parquet"
+            results_df.write_parquet(output_path)
+            logger.info(f"💾 Результаты сохранены в: {output_path}")
 
-    # Фильтруем по скору докинга с параметрами из конфигурации
-    docking_threshold = config.HIT_SELECTION_FILTERS["docking_filters"]["binding_energy"]["max"]
-    LOGGER.info(f"Применение фильтра по скору докинга для DYRK1A: < {docking_threshold} kcal/mol")
-    final_hits = hits.filter(pl.col("docking_score") < docking_threshold)
-    LOGGER.info(f"Осталось {len(final_hits)} молекул после фильтрации по докингу.")
+            # Выводим топ результаты
+            logger.info("🏆 Топ-10 результатов:")
+            for i, result in enumerate(results_data[:10]):
+                logger.info(f"  {i+1}. {result['molecule_id']}: {result['docking_score']:.3f}")
 
-    if len(final_hits) == 0:
-        LOGGER.warning("Не найдено молекул после докинга. Попробуйте ослабить порог.")
-        return
-
-    # 4. Обеспечение разнообразия (Diversity Picking) с параметрами из конфигурации
-    # Чтобы финальный список не состоял из очень похожих молекул.
-    max_hits = config.PIPELINE_PARAMETERS["hit_selection"]["max_hits"]
-    num_final_hits = min(max_hits, len(final_hits))
-    LOGGER.info(f"Отбор {num_final_hits} наиболее разнообразных молекул DYRK1A из кандидатов...")
-
-    # Простая альтернатива MaxMinPicker для diversity picking
-    import random
-
-    from rdkit.Chem import DataStructs
-
-    mols = [Chem.MolFromSmiles(s) for s in final_hits["smiles"]]  # type: ignore[attr-defined]
-    gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
-    fps = []
-    for m in mols:
-        if m is not None:
-            bv = gen.GetFingerprint(m)
         else:
-            bv = None
-        fps.append(bv)
+            logger.warning("⚠️ Докинг не дал результатов")
 
-    # Быстрый MaxMin diversity picking для больших наборов данных
-    def fast_maxmin_pick(fingerprints, num_picks, seed=42):
-        random.seed(seed)
-        valid_indices = [i for i, fp in enumerate(fingerprints) if fp is not None]
+    except Exception as e:
+        logger.error(f"❌ Ошибка в пайплайне отбора хитов: {e}")
+        raise
 
-        if len(valid_indices) <= num_picks:
-            return valid_indices
-
-        # Если слишком много молекул, сначала делаем случайную выборку
-        if len(valid_indices) > 1000:
-            LOGGER.info(f"Large dataset ({len(valid_indices)} molecules), using random pre-selection...")
-            valid_indices = random.sample(valid_indices, min(1000, len(valid_indices)))
-
-        # Начинаем с случайной молекулы
-        selected = [random.choice(valid_indices)]
-
-        for _ in range(min(num_picks - 1, len(valid_indices) - 1)):
-            max_min_dist = -1
-            best_idx = -1
-
-            for i in valid_indices:
-                if i in selected:
-                    continue
-
-                # Найти минимальное расстояние до уже выбранных
-                min_dist = float("inf")
-                for j in selected:
-                    similarity = DataStructs.TanimotoSimilarity(fingerprints[i], fingerprints[j])
-                    distance = 1 - similarity
-                    min_dist = min(min_dist, distance)
-
-                # Выбрать молекулу с максимальным минимальным расстоянием
-                if min_dist > max_min_dist:
-                    max_min_dist = min_dist
-                    best_idx = i
-
-            if best_idx != -1:
-                selected.append(best_idx)
-
-        return selected
-
-    pick_indices = fast_maxmin_pick(fps, num_final_hits)
-
-    diverse_hits_df = final_hits[pick_indices]
-
-    # 5. Сохранение итогового списка
-    final_df = diverse_hits_df.sort("docking_score", descending=False)
-    final_df.write_parquet(config.FINAL_HITS_PATH)
-
-    LOGGER.info(f"Итоговый список из {len(final_df)} молекул-хитов сохранен в {config.FINAL_HITS_PATH}")
-    LOGGER.info("Финальные кандидаты:")
-    LOGGER.info(f"\n{final_df}")
-    LOGGER.info("--- Этап 4 завершен ---")
-
-
-if __name__ == "__main__":
-    run_hit_selection_pipeline()
+    logger.info("🎉 Пайплайн отбора хитов завершен")

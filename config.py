@@ -374,6 +374,12 @@ OPTUNA_STUDIES_DIR.mkdir(parents=True, exist_ok=True)
 # Позволяет отключить реальный запуск AutoDock Vina (например, если не установлен)
 USE_VINA_DOCKING = True
 
+# --- Выбор режима докинга ---
+# Параметр для выбора между CPU и GPU докингом в pipeline
+DOCKING_MODE = "gpu"  # "cpu", "gpu"
+# "cpu" - использовать только CPU Vina
+# "gpu" - использовать GPU AutoDock-GPU с автоматическим fallback на CPU
+
 # --- Шаг 4: Отбор хитов ---
 HIT_SELECTION_DIR = BASE_DIR / "step_04_hit_selection"
 HIT_SELECTION_RESULTS_DIR = HIT_SELECTION_DIR / "results"
@@ -406,6 +412,32 @@ DOCKING_PARAMETERS = {
     "exhaustiveness": 8,         # Тщательность поиска
     "num_modes": 9,             # Количество режимов связывания
     "energy_range": 3.0,        # Диапазон энергий (kcal/mol)
+
+    # GPU докинг настройки - ОПТИМИЗИРОВАНЫ ДЛЯ МАКСИМАЛЬНОЙ ЗАГРУЗКИ GPU
+    "gpu_engine": "autodock_gpu",
+    "use_gpu": True,
+    "autodock_gpu_path": "/home/qwerty/github/datacon2025hack/gpu_docking_tools/AutoDock-GPU-develop/bin/autodock_gpu_128wi",
+    "autogrid_path": "/usr/local/bin/autogrid4",
+
+    # Оптимизированные параметры для максимальной загрузки GPU
+    "batch_size": 2000,          # Увеличиваем размер батча для лучшей загрузки GPU
+    "max_concurrent_jobs": 16,   # Больше параллельных задач для GPU
+    "gpu_device": 0,             # Основной GPU
+    "num_threads": 32,           # Максимальное количество потоков
+
+    # AutoDock-GPU специфичные параметры для высокой производительности
+    "autodock_gpu_nrun": 50,     # Увеличиваем количество запусков для лучшей загрузки
+    "autodock_gpu_nev": 5000000, # Больше оценок для интенсивной GPU работы
+    "autodock_gpu_ngen": 84000,  # Увеличиваем поколения для длительной GPU работы
+    "autodock_gpu_psize": 300,   # Увеличиваем размер популяции
+    "autodock_gpu_heuristics": 1,
+    "autodock_gpu_autostop": 0,  # Отключаем автостоп для максимальной загрузки
+    "autodock_gpu_xml_output": 1,
+    "autodock_gpu_dlg_output": 1,
+
+    # Таймауты для длительных GPU вычислений
+    "timeout_per_ligand": 600,   # Увеличиваем таймаут для сложных вычислений
+    "timeout_per_batch": 3600,   # Таймаут для батча
 
     # Ключевые остатки для взаимодействия с DYRK1A
     "key_residues": [

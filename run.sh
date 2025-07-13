@@ -74,16 +74,19 @@ step "Step 4 – Protein & ligand preparation for docking"
 uv run python step_04_hit_selection/protein_prep.py
 uv run python step_04_hit_selection/ligand_prep.py
 
-step "Step 4 – Docking with AutoDock Vina"
-# Vina may be absent; fall back to stub scores if it fails
-if uv run python step_04_hit_selection/run_vina.py; then
-  echo -e "${GREEN}Vina docking completed successfully.${RESET}"
+step "Step 4 – GPU-accelerated docking and hit selection"
+# GPU-accelerated docking with AutoDock-GPU (falls back to CPU if needed)
+if uv run python step_04_hit_selection/run_hit_selection.py; then
+  echo -e "${GREEN}GPU-accelerated docking and hit selection completed successfully.${RESET}"
 else
-  echo "WARNING: AutoDock Vina failed or not installed – stub scores will be used."
+  echo "WARNING: GPU docking failed – falling back to CPU docking"
+  if uv run python step_04_hit_selection/run_vina.py; then
+    echo -e "${GREEN}CPU docking completed successfully.${RESET}"
+    uv run python step_04_hit_selection/run_hit_selection.py
+  else
+    echo "WARNING: Both GPU and CPU docking failed – stub scores will be used."
+  fi
 fi
-
-step "Step 4 – Hit selection"
-uv run python step_04_hit_selection/run_hit_selection.py
 
 uv run python step_02_activity_prediction/generate_summary_report.py
 
