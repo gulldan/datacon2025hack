@@ -7,6 +7,7 @@ from rdkit import (
     DataStructs,  # type: ignore
 )
 from rdkit.Chem import QED, Crippen  # type: ignore
+from rdkit.Chem.Descriptors import Descriptors  # type: ignore
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
@@ -66,14 +67,38 @@ def get_scoring_function(activity_model):
         qed_score = QED.qed(mol)
 
         # 2. Предсказанная активность
-        gen = GetMorganGenerator(
-            radius=config.FP_RADIUS,
-            fpSize=config.FP_BITS_LINEAR,
-            includeChirality=config.FP_INCLUDE_CHIRALITY,
-        )
-        bv = gen.GetFingerprint(mol)
-        arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.float32)
-        DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
+        # Build feature vector according to model type
+        use_linear = hasattr(activity_model, "coeffs") and len(activity_model.coeffs()) > 0  # type: ignore[arg-type]
+
+        if use_linear:
+            gen = GetMorganGenerator(
+                radius=config.FP_RADIUS,
+                fpSize=config.FP_BITS_LINEAR,
+                includeChirality=config.FP_INCLUDE_CHIRALITY,
+            )
+            bv = gen.GetFingerprint(mol)
+            arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
+        else:
+            # XGBoost expects 1024 bits + 6 descriptors
+            gen = GetMorganGenerator(
+                radius=config.FP_RADIUS,
+                fpSize=config.FP_BITS_XGB,
+                includeChirality=config.FP_INCLUDE_CHIRALITY,
+            )
+            bv = gen.GetFingerprint(mol)
+            fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
+            desc_vals = np.asarray([
+                Descriptors.MolWt(mol),  # type: ignore[attr-defined]
+                Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
+                Descriptors.TPSA(mol),  # type: ignore[attr-defined]
+                Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
+                Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
+                Descriptors.RingCount(mol),  # type: ignore[attr-defined]
+            ], dtype=np.float32)
+            arr = np.concatenate([fp_arr, desc_vals])
+
         predicted_pic50 = activity_model.predict(arr.reshape(1, -1))[0]
         # Нормализуем pIC50 (например, цель > 7.0)
         activity_score = min(1.0, max(0.0, (predicted_pic50 - 5.0) / 3.0)) # Цель [5, 8] -> [0, 1]
