@@ -165,7 +165,7 @@ def main() -> None:
         sys.exit(1)
 
     df = pl.read_parquet(VALIDATED_PATH)
-    LOGGER.info("Loaded %d validated molecules.", len(df))
+    LOGGER.info("Loaded {} validated molecules.", len(df))
 
     # Compute descriptors
     LOGGER.info("Computing RDKit descriptors…")
@@ -184,6 +184,10 @@ def main() -> None:
             d["hepatotox_prob"] = hepatotoxicity_prob(d)
 
         desc_list.append({"smiles": smi, **d})
+
+    if not desc_list:
+        LOGGER.warning("Descriptor list is empty – no valid molecules to process.")
+        return
 
     desc_df = pl.DataFrame(desc_list)
 
@@ -231,7 +235,7 @@ def main() -> None:
         filters_expr &= pl.col("hepatotox_prob") < 0.6
 
     filtered = desc_df.filter(filters_expr)
-    LOGGER.info("After drug-likeness filters: %d molecules.", len(filtered))
+    LOGGER.info("After drug-likeness filters: {} molecules.", len(filtered))
 
     if len(filtered) == 0:
         LOGGER.warning("No molecules passed drug-likeness criteria – aborting.")
@@ -250,14 +254,14 @@ def main() -> None:
     filtered = filtered.with_columns(pl.Series("predicted_pIC50", preds))
 
     active = filtered.filter(pl.col("predicted_pIC50") > 6.0)  # IC50 < 1 µM
-    LOGGER.info("Active candidates after pIC50 filter: %d", len(active))
+    LOGGER.info("Active candidates after pIC50 filter: {}", len(active))
 
     if len(active) == 0:
         LOGGER.warning("No active molecules found – consider lowering threshold.")
 
     # Save for downstream docking / hit selection
     active.write_parquet(config.GENERATED_MOLECULES_PATH)
-    LOGGER.info("Filtered & scored molecules saved to %s", config.GENERATED_MOLECULES_PATH)
+    LOGGER.info("Filtered & scored molecules saved to {}", config.GENERATED_MOLECULES_PATH)
 
 
 if __name__ == "__main__":
