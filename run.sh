@@ -61,8 +61,8 @@ step "Step 2 – Activity data collection + QSAR model (scaffold split)"
 uv run python step_02_activity_prediction/data_collection.py
 uv run python step_02_activity_prediction/train_activity_model_scaffold.py
 
-step "Step 3 – Molecule generation & filtering"
-uv run python step_03_molecule_generation/char_rnn_generator.py
+step "Step 3 – Molecule generation & filtering (SELFIES-VAE)"
+uv run python step_03_molecule_generation/run_generation.py
 uv run python step_03_molecule_generation/validate_generated.py
 uv run python step_03_molecule_generation/filter_and_score.py
 

@@ -10,9 +10,10 @@ from chembl_webresource_client.new_client import new_client
 from plotly.subplots import make_subplots
 from polars_ds.linear_models import ElasticNet
 from rdkit import Chem
-from rdkit.Chem import AllChem, Descriptors
+from rdkit.Chem import Descriptors
 
 import config
+from step_02_activity_prediction.model_utils import smiles_to_fp
 from utils.logger import LOGGER
 
 # --- Функции ---
@@ -96,20 +97,8 @@ def calculate_descriptors(smiles: str):
     }
 
 def generate_fingerprints(smiles: str, n_bits: int = 2048):
-    """Генерирует Morgan Fingerprints.
-
-    Args:
-        smiles (str): SMILES строка.
-        n_bits (int): Размерность фингерпринта.
-
-    Returns:
-        np.array or None: Массив фингерпринта.
-    """
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None
-    fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=n_bits)
-    return np.array(fp)
+    """Wrapper around ``model_utils.smiles_to_fp`` for backward compatibility."""
+    return smiles_to_fp(smiles, n_bits=n_bits, radius=2)
 
 def run_activity_prediction_pipeline():
     """Основная функция для запуска пайплайна предсказания активности."""

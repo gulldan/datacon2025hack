@@ -22,23 +22,13 @@ import numpy as np
 import plotly.express as px  # type: ignore
 import polars as pl
 from polars_ds.linear_models import ElasticNet  # type: ignore
-from rdkit import Chem  # type: ignore
-from rdkit.Chem import AllChem  # type: ignore
 
 import config
+from step_02_activity_prediction.model_utils import smiles_to_fp
 from utils.logger import LOGGER
 
-# -----------------------------------------------------------------------------
-# Feature generation helpers
-# -----------------------------------------------------------------------------
-
-def morgan_fp(smiles: str, n_bits: int = 2048, radius: int = 2) -> np.ndarray | None:
-    """Return binary Morgan fingerprint as ``np.ndarray`` (shape = [n_bits])."""
-    mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
-    if mol is None:
-        return None
-    fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)  # type: ignore[attr-defined]
-    return np.asarray(fp, dtype=np.float32)  # convert to float for ElasticNet
+# We now rely on modern RDKit MorganGenerator implementation provided via
+# ``model_utils.smiles_to_fp`` to avoid deprecation warnings.
 
 
 # -----------------------------------------------------------------------------
@@ -65,7 +55,7 @@ def build_feature_matrix(df: pl.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     targets: list[float] = []
 
     for smiles, ic50_nm in zip(df["SMILES"], df["IC50_nM"], strict=False):
-        fp = morgan_fp(smiles)
+        fp = smiles_to_fp(smiles)
         if fp is None:
             continue
         fingerprints.append(fp)
@@ -87,7 +77,7 @@ def train_model(X: np.ndarray, y: np.ndarray) -> tuple[ElasticNet, dict[str, flo
     y_train, y_test = y[train_idx], y[test_idx]
 
     model = ElasticNet(l1_reg=0.001, l2_reg=0.01, has_bias=True, max_iter=5000)
-    LOGGER.info("Training ElasticNet model (%d train samples)…", len(X_train))
+    LOGGER.info(f"Training ElasticNet model ({len(X_train)} train samples)…")
     model.fit(X_train, y_train)
 
     def _rmse(a: np.ndarray, b: np.ndarray) -> float:
@@ -136,11 +126,8 @@ def main() -> None:
 
     model, metrics = train_model(X, y)
     LOGGER.info(
-        "Train R² %.3f / RMSE %.3f | Test R² %.3f / RMSE %.3f",
-        metrics["r2_train"],
-        metrics["rmse_train"],
-        metrics["r2_test"],
-        metrics["rmse_test"],
+        "Train R² {r2_train:.3f} / RMSE {rmse_train:.3f} | Test R² {r2_test:.3f} / RMSE {rmse_test:.3f}",
+        **metrics,
     )
 
     # Save artefacts

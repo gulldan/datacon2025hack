@@ -14,8 +14,8 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
-from rdkit import Chem  # type: ignore
-from rdkit.Chem import AllChem  # type: ignore
+from rdkit import Chem, DataStructs  # type: ignore
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -39,8 +39,12 @@ def smiles_to_fp(smiles: str, n_bits: int = 2048, radius: int = 2) -> np.ndarray
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if mol is None:
         return None
-    fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)  # type: ignore[attr-defined]
-    return np.asarray(fp, dtype=np.float64)
+
+    generator = GetMorganGenerator(radius=radius, fpSize=n_bits, includeChirality=False)
+    bitvect = generator.GetFingerprint(mol)
+    arr = np.zeros((n_bits,), dtype=np.float64)
+    DataStructs.ConvertToNumpyArray(bitvect, arr)  # type: ignore[arg-type]
+    return arr
 
 
 # -----------------------------------------------------------------------------

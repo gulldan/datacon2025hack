@@ -18,22 +18,21 @@ import numpy as np
 import polars as pl
 from polars_ds.linear_models import ElasticNet  # type: ignore
 from rdkit import Chem  # type: ignore
-from rdkit.Chem import AllChem  # type: ignore
 from rdkit.Chem.Scaffolds import MurckoScaffold  # type: ignore
 
 import config
+from step_02_activity_prediction.model_utils import smiles_to_fp
 from utils.logger import LOGGER
 
 # -----------------------------------------------------------------------------
 # Helper functions
 # -----------------------------------------------------------------------------
 
-def morgan_fp(smiles: str, n_bits: int = 2048, radius: int = 2) -> np.ndarray | None:
-    mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
-    if mol is None:
-        return None
-    fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)  # type: ignore[attr-defined]
-    return np.asarray(fp, dtype=np.float32)
+# Modern fingerprint helper from model_utils (uses MorganGenerator).
+
+# (kept wrapper for potential extra options in future but delegating logic)
+def morgan_fp(smiles: str, n_bits: int = 2048, radius: int = 2):
+    return smiles_to_fp(smiles, n_bits=n_bits, radius=radius)
 
 
 def bemis_murcko_scaffold(smiles: str) -> str | None:
@@ -106,7 +105,7 @@ def main() -> None:
     fps: list[np.ndarray] = []
     y: list[float] = []
     for smiles, ic50 in zip(df["SMILES"], df["IC50_nM"], strict=False):
-        fp = morgan_fp(smiles)
+        fp = smiles_to_fp(smiles)
         if fp is None:
             continue
         fps.append(fp)
@@ -119,7 +118,7 @@ def main() -> None:
     X_train, X_test = X[mask_train], X[mask_test]
     y_train, y_test = y_vec[mask_train], y_vec[mask_test]
 
-    LOGGER.info("Training samples: %d | Test samples (scaffold-split): %d", len(y_train), len(y_test))
+    LOGGER.info(f"Training samples: {len(y_train)} | Test samples (scaffold-split): {len(y_test)}")
 
     model = ElasticNet(l1_reg=0.001, l2_reg=0.01, has_bias=True, max_iter=5000)
     model.fit(X_train, y_train)
@@ -142,11 +141,8 @@ def main() -> None:
     }
 
     LOGGER.info(
-        "Train R² %.3f / RMSE %.3f | Test R² %.3f / RMSE %.3f",
-        metrics["r2_train"],
-        metrics["rmse_train"],
-        metrics["r2_test"],
-        metrics["rmse_test"],
+        "Train R² {r2_train:.3f} / RMSE {rmse_train:.3f} | Test R² {r2_test:.3f} / RMSE {rmse_test:.3f}",
+        **metrics,
     )
 
     out_dir = config.PREDICTION_RESULTS_DIR

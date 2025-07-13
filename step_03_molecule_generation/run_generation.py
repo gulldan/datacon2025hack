@@ -1,4 +1,5 @@
 # step_03_molecule_generation/run_generation.py
+
 import numpy as np
 import polars as pl
 from rdkit import Chem  # type: ignore
@@ -117,19 +118,11 @@ def run_generation_pipeline():
     # 3. Создание скоринговой функции
     scoring_function = get_scoring_function(activity_model)
 
-    # 4. Имитация генерации и оценка
-    # Предположим, что генеративная модель (например, из `data/raw`) дала нам этот список SMILES
-    # На практике здесь был бы цикл дообучения модели с использованием `scoring_function`
+    # 4. Генерация молекул при помощи SELFIES-VAE
+    from step_03_molecule_generation.selfies_vae_generator import train_and_sample
 
-    # Возьмем несколько молекул из исходного датасета для примера
-    source_df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
-    generated_smiles_pool = source_df.sample(n=100, seed=config.RANDOM_STATE)["canonical_smiles"].to_list()
-    # ... и добавим несколько выдуманных
-    generated_smiles_pool.extend([
-        "c1ccccc1C(=O)N[C@@H](C)C(=O)O",
-        "CC(C)c1ccc(C(=O)O)cc1",
-        "O=C(O)c1ccccc1-c1ccc(F)cc1"
-    ])
+    LOGGER.info("Генерируем молекулы SELFIES-VAE…")
+    generated_smiles_pool: list[str] = train_and_sample(2000)
 
     LOGGER.info(f"Оценка {len(generated_smiles_pool)} сгенерированных молекул...")
 

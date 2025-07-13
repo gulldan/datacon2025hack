@@ -75,21 +75,31 @@ def dock_ligand(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path) -> float | Non
         return None
 
     # Parse score
+    # 1) Try dedicated log file
     if HAS_LOG_OPTION and log_path.exists():
-        try:
-            for line in log_path.read_text().splitlines():
-                if line.strip().startswith("1 "):
-                    parts = line.split()
-                    return float(parts[1])
-        except Exception:
-            pass
-    else:
-        # parse from stdout
-        out_text = res.stdout.decode()
-        for line in out_text.splitlines():
-            m = re.match(r"^\s*1\s+(-?\d+\.\d+)", line)
-            if m:
-                return float(m.group(1))
+        for line in log_path.read_text().splitlines():
+            if line.strip().startswith("1 "):
+                parts = line.split()
+                return float(parts[1])
+
+    # 2) Try stdout of Vina
+    out_text = res.stdout.decode()
+    for line in out_text.splitlines():
+        m = re.match(r"^\s*1\s+(-?\d+\.\d+)", line)
+        if m:
+            return float(m.group(1))
+
+    # 3) Fallback: parse header of resulting PDBQT (REMARK VINA RESULT line)
+    if out_pdbqt.exists():
+        for line in out_pdbqt.read_text().splitlines():
+            if line.startswith("REMARK VINA RESULT:"):
+                # Example: "REMARK VINA RESULT:     -7.5      0.000      0.000"
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        return float(parts[3])
+                    except ValueError:
+                        continue
     return None
 
 
