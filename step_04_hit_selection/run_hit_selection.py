@@ -4,8 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
-from rdkit import Chem  # type: ignore
-from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect  # type: ignore
+from rdkit import (
+    Chem,  # type: ignore
+    )
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 from rdkit.SimDivFilters import MaxMinPicker  # type: ignore
 
 # Ensure project root in PYTHONPATH when executed as script
@@ -108,7 +110,11 @@ def run_hit_selection_pipeline():
     LOGGER.info(f"Отбор {num_final_hits} наиболее разнообразных молекул из кандидатов...")
 
     mols = [Chem.MolFromSmiles(s) for s in final_hits["smiles"]]  # type: ignore[attr-defined]
-    fps = [GetMorganFingerprintAsBitVect(m, 2, nBits=2048) for m in mols]
+    gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
+    fps = []
+    for m in mols:
+        bv = gen.GetFingerprint(m)
+        fps.append(bv)
 
     picker = MaxMinPicker()
     pick_indices = list(picker.LazyPick(fps, len(fps), num_final_hits))

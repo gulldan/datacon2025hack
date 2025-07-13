@@ -15,13 +15,18 @@ import random
 import sys as _sys
 from pathlib import Path
 
+import numpy as np
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in _sys.path:
     _sys.path.insert(0, str(ROOT_DIR))
 
 import polars as pl
-from rdkit import Chem  # type: ignore
-from rdkit.Chem import AllChem, DataStructs  # type: ignore
+from rdkit import (
+    Chem,  # type: ignore
+    DataStructs,  # type: ignore
+)
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -30,9 +35,14 @@ RAW_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
 OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_molecules.parquet"
 
 
-def compute_fingerprint(mol: Chem.Mol):  # type: ignore[valid-type]
-    """Return Morgan fingerprint as RDKit ExplicitBitVect."""
-    return AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)  # type: ignore[attr-defined]
+_fp_gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
+
+
+def fingerprint(mol):
+    bv = _fp_gen.GetFingerprint(mol)
+    arr = np.zeros((2048,), dtype=np.uint8)
+    DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
+    return arr
 
 
 def load_training_set() -> set[str]:
@@ -60,7 +70,7 @@ def main() -> None:
         if mol is None:
             continue
         valid.append(smi)
-        fps.append(compute_fingerprint(mol))
+        fps.append(fingerprint(mol))
 
     unique_smiles = sorted(set(valid))
     LOGGER.info("Valid & novel molecules: %d (%.1f%%)", len(unique_smiles), 100 * len(unique_smiles) / len(smiles_raw))

@@ -2,9 +2,12 @@
 
 import numpy as np
 import polars as pl
-from rdkit import Chem  # type: ignore
+from rdkit import (
+    Chem,  # type: ignore
+    DataStructs,  # type: ignore
+)
 from rdkit.Chem import QED, Crippen  # type: ignore
-from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect  # type: ignore
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -63,8 +66,11 @@ def get_scoring_function(activity_model):
         qed_score = QED.qed(mol)
 
         # 2. Предсказанная активность
-        fp = GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
-        predicted_pic50 = activity_model.predict(np.array(fp).reshape(1, -1))[0]
+        gen = GetMorganGenerator(radius=2, fpSize=2048, includeChirality=False)
+        bv = gen.GetFingerprint(mol)
+        arr = np.zeros((2048,), dtype=np.float32)
+        DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
+        predicted_pic50 = activity_model.predict(arr.reshape(1, -1))[0]
         # Нормализуем pIC50 (например, цель > 7.0)
         activity_score = min(1.0, max(0.0, (predicted_pic50 - 5.0) / 3.0)) # Цель [5, 8] -> [0, 1]
 

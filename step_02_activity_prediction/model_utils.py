@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import xgboost as xgb  # type: ignore
 from rdkit import Chem, DataStructs  # type: ignore
+from rdkit.Chem import Descriptors  # type: ignore
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
@@ -150,7 +151,6 @@ def predict_smiles(smiles_iter: Iterable[str], model: LinearFpModel | None = Non
     smiles_list = list(smiles_iter)
     preds: list[float] = [np.nan] * len(smiles_list)
 
-    from rdkit.Chem import AllChem, Descriptors  # type: ignore
 
     # detector: if model has coeffs with length>0 -> linear; else XGB
     use_linear = hasattr(model, "coeffs") and len(model.coeffs()) > 0  # type: ignore[arg-type]
@@ -177,8 +177,10 @@ def predict_smiles(smiles_iter: Iterable[str], model: LinearFpModel | None = Non
             arr = fp
         else:
             desc_vals = np.asarray([f(mol) for f in RD_FUNCS], dtype=np.float32)
-            fp_short = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024)  # type: ignore[attr-defined]
-            fp_arr = np.asarray(fp_short, dtype=np.float32)
+            generator_short = GetMorganGenerator(radius=2, fpSize=1024, includeChirality=False)
+            bv = generator_short.GetFingerprint(mol)
+            fp_arr = np.zeros((1024,), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
             arr = np.concatenate([fp_arr, desc_vals])
         feat_batch.append(arr)
         idx_map.append(idx)

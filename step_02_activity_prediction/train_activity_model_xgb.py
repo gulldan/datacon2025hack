@@ -12,8 +12,12 @@ import json
 import numpy as np
 import polars as pl
 import xgboost as xgb  # type: ignore
-from rdkit import Chem  # type: ignore
-from rdkit.Chem import AllChem, Descriptors  # type: ignore
+from rdkit import (
+    Chem,  # type: ignore
+    DataStructs,  # type: ignore
+)
+from rdkit.Chem import Descriptors  # type: ignore
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -32,14 +36,16 @@ RD_DESCS = [
 ]
 
 FP_BITS = 1024
+_generator = GetMorganGenerator(radius=2, fpSize=FP_BITS, includeChirality=False)
 
 
 def compute_features(smiles: str) -> tuple[np.ndarray, float] | None:
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if mol is None:
         return None
-    fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=FP_BITS)  # type: ignore[attr-defined]
-    fp_arr = np.asarray(fp, dtype=np.float32)
+    bitvect = _generator.GetFingerprint(mol)
+    fp_arr = np.zeros((FP_BITS,), dtype=np.float32)
+    DataStructs.ConvertToNumpyArray(bitvect, fp_arr)  # type: ignore[arg-type]
     desc_vals = [func(mol) for _, func in RD_DESCS]
     feat = np.concatenate([fp_arr, np.asarray(desc_vals, dtype=np.float32)])
     return feat, 0.0  # placeholder second value
