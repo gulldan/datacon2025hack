@@ -8,6 +8,7 @@ containing two arrays:
 This module exposes helper functions to work with this artefact without relying on
 pickling (``joblib``), which is not supported by the underlying ``polars_ds`` objects.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -150,7 +151,6 @@ def predict_smiles(smiles_iter: Iterable[str], model: LinearFpModel | None = Non
 
     smiles_list = list(smiles_iter)
     preds: list[float] = [np.nan] * len(smiles_list)
-
 
     # detector: if model has coeffs with length>0 -> linear; else XGB
     use_linear = hasattr(model, "coeffs") and len(model.coeffs()) > 0  # type: ignore[arg-type]

@@ -67,5 +67,6 @@ def generate_target_selection_report():
     LOGGER.info(f"Выбранная мишень: GSK-3β (ChEMBL ID: {config.CHOSEN_TARGET_ID}, PDB ID: {config.CHOSEN_PDB_ID})")
     LOGGER.info("Этап 1 завершен.")
 
+
 if __name__ == "__main__":
     generate_target_selection_report()

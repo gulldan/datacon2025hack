@@ -35,6 +35,8 @@ except Exception:
 
 def dock_ligand(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path) -> float | None:
     global HAS_LOG_OPTION
+    # Build Vina command with DYRK1A specific parameters
+    docking_params = config.DOCKING_PARAMETERS
     cmd = [
         VINA_BIN,
         "--receptor",
@@ -53,6 +55,12 @@ def dock_ligand(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path) -> float | Non
         str(config.BOX_SIZE[1]),
         "--size_z",
         str(config.BOX_SIZE[2]),
+        "--exhaustiveness",
+        str(docking_params["exhaustiveness"]),
+        "--num_modes",
+        str(docking_params["num_modes"]),
+        "--energy_range",
+        str(docking_params["energy_range"]),
         "--out",
         str(out_pdbqt),
     ]

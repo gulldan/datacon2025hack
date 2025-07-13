@@ -163,7 +163,7 @@ def get_scoring_function(activity_model):
         # 4. Проницаемость через ГЭБ (BBBP)
         bbbp_score = calculate_bbbp(smiles)
 
-        # 5. Объединение метрик в один скор (взвешенная сумма)
+        # 5. Объединение метрик в один скор (взвешенная сумма для DYRK1A)
         weights = config.SCORING_WEIGHTS
 
         final_score = (
@@ -172,6 +172,13 @@ def get_scoring_function(activity_model):
             weights["sa"] * sa_score +
             weights["bbbp"] * bbbp_score
         )
+
+        # Добавляем компонент селективности если доступен
+        if "selectivity" in weights:
+            # Простая эвристика селективности для DYRK1A (можно улучшить)
+            selectivity_score = min(1.0, activity_score * 0.8)  # Предполагаем корреляцию
+            final_score += weights["selectivity"] * selectivity_score
+
         return final_score
 
     return score_molecule
@@ -208,29 +215,126 @@ def run_generation_pipeline():
     # 3. Создание скоринговой функции
     scoring_function = get_scoring_function(activity_model)
 
+    # 3.5. Дообучение моделей (если включено)
+    if config.ENABLE_FINETUNING:
+        LOGGER.info("=== Запуск дообучения моделей ===")
+        try:
+            from step_03_molecule_generation.run_finetuning import main as run_finetuning
+            run_finetuning()
+        except Exception as e:
+            LOGGER.error(f"Fine-tuning failed: {e}")
+
     # 4. Генерация молекул согласно выбранному типу
     if config.GENERATOR_TYPE == "selfies_vae":
-        from step_03_molecule_generation.selfies_vae_generator import train_and_sample
-
         LOGGER.info("Генерируем молекулы SELFIES-VAE…")
-        generated_smiles_pool: list[str] = train_and_sample(config.VAE_GENERATE_N)
+        from step_03_molecule_generation.selfies_vae_generator import train_and_sample
+        generated_smiles = train_and_sample(config.VAE_GENERATE_N)
+    elif config.GENERATOR_TYPE == "transformer_vae":
+        LOGGER.info("Генерируем молекулы Transformer VAE…")
+        from step_03_molecule_generation.transformer_vae_generator import train_and_sample_transformer
+        generated_smiles = train_and_sample_transformer(config.VAE_GENERATE_N)
+
+    elif config.GENERATOR_TYPE == "docking_guided":
+        LOGGER.info("Генерируем молекулы с docking-guided RL…")
+        from step_03_molecule_generation.char_rnn_generator import load_vocabulary  # Используем существующий vocabulary
+        from step_03_molecule_generation.docking_guided_generator import DockingConfig, train_docking_guided_generator
+
+        # Загружаем vocabulary
+        vocab = load_vocabulary()
+
+        # Создаем конфигурацию
+        docking_config = DockingConfig(
+            target_pdb=config.DOCKING_GUIDED_CONFIG["target_pdb"],
+            chembl_id=config.DOCKING_GUIDED_CONFIG["chembl_id"],
+            exhaustiveness=config.DOCKING_GUIDED_CONFIG["exhaustiveness"],
+            num_modes=config.DOCKING_GUIDED_CONFIG["num_modes"],
+            energy_range=config.DOCKING_GUIDED_CONFIG["energy_range"],
+            docking_weight=config.DOCKING_GUIDED_CONFIG["docking_weight"],
+            activity_weight=config.DOCKING_GUIDED_CONFIG["activity_weight"],
+            drug_likeness_weight=config.DOCKING_GUIDED_CONFIG["drug_likeness_weight"],
+            novelty_weight=config.DOCKING_GUIDED_CONFIG["novelty_weight"]
+        )
+
+        # Обучаем и генерируем
+        model = train_docking_guided_generator(
+            vocab,
+            docking_config,
+            num_epochs=config.DOCKING_GUIDED_CONFIG["rl_epochs"]
+        )
+
+        # Генерируем финальные молекулы
+        generated_smiles = model.generate_molecules(vocab, config.VAE_GENERATE_N)
+
     elif config.GENERATOR_TYPE == "graph_flow":
-        try:
-            from step_03_molecule_generation.graph_generator import train_and_sample
-        except ImportError:
-            LOGGER.error("Graph generator module not found. Ensure T21 is implemented.")
-            return
+        LOGGER.info("Генерируем молекулы Graph Flow…")
+        from step_03_molecule_generation.graph_generator import train_and_sample
+        generated_smiles = train_and_sample(config.VAE_GENERATE_N)
 
-        LOGGER.info("Генерируем молекулы Graph-Flow…")
-        generated_smiles_pool = train_and_sample(config.VAE_GENERATE_N)
+    elif config.GENERATOR_TYPE == "pretrained":
+        LOGGER.info("Генерируем молекулы с предобученной Hugging Face моделью…")
+        from step_03_molecule_generation.pretrained_generator import PretrainedMolecularGenerator
+
+        generator = PretrainedMolecularGenerator(
+            model_name=config.PRETRAINED_HF_CONFIG["model_name"],
+            max_length=config.PRETRAINED_HF_CONFIG["max_length"]
+        )
+
+        # Fine-tune if requested
+        if config.PRETRAINED_HF_CONFIG["fine_tune"]:
+            LOGGER.info("Дообучаем предобученную модель на целевых данных...")
+
+            # Load ChEMBL data for fine-tuning
+            if config.PRETRAINED_HF_CONFIG["use_chembl_data"]:
+                try:
+                    chembl_df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
+                    target_smiles = chembl_df.select("SMILES").to_series().to_list()
+
+                    # Sample if too large
+                    sample_size = config.PRETRAINED_HF_CONFIG["chembl_sample_size"]
+                    if len(target_smiles) > sample_size:
+                        import random
+                        random.seed(config.RANDOM_STATE)
+                        target_smiles = random.sample(target_smiles, sample_size)
+
+                    LOGGER.info(f"Дообучаем на {len(target_smiles)} молекулах из ChEMBL...")
+                    generator.fine_tune_for_target(
+                        target_smiles=target_smiles,
+                        learning_rate=config.PRETRAINED_HF_CONFIG["fine_tune_lr"],
+                        epochs=config.PRETRAINED_HF_CONFIG["fine_tune_epochs"],
+                        batch_size=config.PRETRAINED_HF_CONFIG["fine_tune_batch_size"]
+                    )
+                except Exception as e:
+                    LOGGER.warning(f"Не удалось загрузить данные ChEMBL для дообучения: {e}")
+
+        # Generate molecules
+        generated_smiles = generator.generate_molecules(
+            num_molecules=config.PRETRAINED_HF_CONFIG["num_molecules"],
+            temperature=config.PRETRAINED_HF_CONFIG["temperature"],
+            top_k=config.PRETRAINED_HF_CONFIG["top_k"],
+            top_p=config.PRETRAINED_HF_CONFIG["top_p"],
+            batch_size=config.PRETRAINED_HF_CONFIG["batch_size"],
+            filter_valid=config.PRETRAINED_HF_CONFIG["filter_valid"]
+        )
+
+        # Save raw SMILES for validation pipeline compatibility
+        raw_smiles_path = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
+        with open(raw_smiles_path, "w", encoding="utf-8") as f:
+            f.writelines(f"{smiles}\n" for smiles in generated_smiles)
+        LOGGER.info(f"Raw SMILES saved to {raw_smiles_path}")
+
+        # Evaluate molecules
+        metrics = generator.evaluate_molecules(generated_smiles)
+        LOGGER.info(f"Метрики генерации: {metrics}")
+
     else:
-        LOGGER.error("Unknown GENERATOR_TYPE '%s' in config.py", config.GENERATOR_TYPE)
-        return
+        raise ValueError(f"Unknown generator type: {config.GENERATOR_TYPE}")
 
-    LOGGER.info(f"Оценка {len(generated_smiles_pool)} сгенерированных молекул...")
+    LOGGER.info(f"Генератор {config.GENERATOR_TYPE} сгенерировал {len(generated_smiles)} молекул")
+
+    LOGGER.info(f"Оценка {len(generated_smiles)} сгенерированных молекул...")
 
     results = []
-    for smiles in generated_smiles_pool:
+    for smiles in generated_smiles:
         mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
         if not mol: continue
 

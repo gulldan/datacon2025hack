@@ -36,8 +36,57 @@ def smiles_to_3d_pdb(smiles: str, out_path: Path) -> bool:
 
 
 def pdb_to_pdbqt(pdb_path: Path, pdbqt_path: Path) -> None:
+    """Convert PDB to PDBQT via OpenBabel with post-processing."""
     cmd = ["obabel", str(pdb_path), "-O", str(pdbqt_path), "--partialcharge", "gasteiger"]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+
+        # Post-process to fix multiple ROOT sections
+        if pdbqt_path.exists():
+            fix_pdbqt_multiple_roots(pdbqt_path)
+
+    except subprocess.CalledProcessError as e:
+        LOGGER.warning(f"OpenBabel conversion failed: {e}")
+
+
+def fix_pdbqt_multiple_roots(pdbqt_path: Path) -> None:
+    """Fix PDBQT files with multiple ROOT sections by keeping only the first one."""
+    try:
+        with open(pdbqt_path) as f:
+            lines = f.readlines()
+
+        # Find the first ROOT section and keep only that
+        new_lines = []
+        in_first_root = False
+        found_first_root = False
+
+        for line in lines:
+            if line.strip() == "ROOT":
+                if not found_first_root:
+                    found_first_root = True
+                    in_first_root = True
+                    new_lines.append(line)
+                else:
+                    # Skip subsequent ROOT sections
+                    break
+            elif line.strip() == "ENDROOT":
+                if in_first_root:
+                    new_lines.append(line)
+                    in_first_root = False
+                # Skip subsequent ENDROOT
+            elif in_first_root or not found_first_root:
+                new_lines.append(line)
+
+        # Add final TORSDOF if not present
+        if new_lines and not any("TORSDOF" in line for line in new_lines):
+            new_lines.append("TORSDOF 0\n")
+
+        # Write back the cleaned file
+        with open(pdbqt_path, "w") as f:
+            f.writelines(new_lines)
+
+    except Exception as e:
+        LOGGER.warning(f"Failed to fix PDBQT file {pdbqt_path}: {e}")
 
 
 def is_valid_pdbqt(pdbqt_path: Path) -> bool:

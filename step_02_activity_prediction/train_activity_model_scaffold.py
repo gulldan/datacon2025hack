@@ -30,6 +30,7 @@ from utils.logger import LOGGER
 
 # Modern fingerprint helper from model_utils (uses MorganGenerator).
 
+
 # (kept wrapper for potential extra options in future but delegating logic)
 def morgan_fp(smiles: str, n_bits: int = 2048, radius: int = 2):
     return smiles_to_fp(smiles, n_bits=n_bits, radius=radius)
@@ -47,12 +48,11 @@ def bemis_murcko_scaffold(smiles: str) -> str | None:
 # Dataset loading & splitting
 # -----------------------------------------------------------------------------
 
+
 def load_dataset() -> pl.DataFrame:
     path = config.ACTIVITY_DATA_PROCESSED_PATH
     if not path.exists():
-        raise FileNotFoundError(
-            f"Processed dataset not found: {path}. Run data_collection.py first."
-        )
+        raise FileNotFoundError(f"Processed dataset not found: {path}. Run data_collection.py first.")
     LOGGER.info(f"Loading processed dataset {path}…")
     return pl.read_parquet(path)
 
@@ -97,6 +97,7 @@ def scaffold_split(df: pl.DataFrame, test_frac: float, seed: int = 42) -> tuple[
 # -----------------------------------------------------------------------------
 # Training
 # -----------------------------------------------------------------------------
+
 
 def main() -> None:
     LOGGER.info("--- Step 2 (variant): Training with scaffold split ---")

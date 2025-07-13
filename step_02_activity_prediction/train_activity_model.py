@@ -35,11 +35,10 @@ from utils.logger import LOGGER
 # Training pipeline
 # -----------------------------------------------------------------------------
 
+
 def load_dataset(path: Path) -> pl.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(
-            f"Processed dataset not found: {path}. Run step_02_activity_prediction/data_collection.py first."
-        )
+        raise FileNotFoundError(f"Processed dataset not found: {path}. Run step_02_activity_prediction/data_collection.py first.")
     LOGGER.info(f"Loading processed dataset {path}…")
     return pl.read_parquet(path)
 
@@ -117,6 +116,7 @@ def plot_feature_importance(model: ElasticNet, out_path: Path):
 # -----------------------------------------------------------------------------
 # Main entry
 # -----------------------------------------------------------------------------
+
 
 def main() -> None:
     LOGGER.info("--- Step 2: Vectorisation + model training ---")

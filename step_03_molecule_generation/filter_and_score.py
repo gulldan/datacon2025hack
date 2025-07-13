@@ -63,10 +63,37 @@ def sa_score(smiles: str) -> float:
         return 10.0
     if sascorer is not None:
         return float(sascorer.calculateScore(mol))  # type: ignore[attr-defined]
-    # fallback heuristic: scale with number of rings + hetero atoms
+
+    # Enhanced heuristic for synthetic accessibility
+    # Lower score = more synthetically accessible
     rings = mol.GetRingInfo().NumRings()  # type: ignore[attr-defined]
     heteros = sum(1 for a in mol.GetAtoms() if a.GetAtomicNum() not in (6, 1))  # type: ignore[attr-defined]
-    return 2.5 + 0.3 * rings + 0.05 * heteros
+
+    # Basic complexity factors
+    num_atoms = mol.GetNumAtoms()  # type: ignore[attr-defined]
+    num_bonds = mol.GetNumBonds()  # type: ignore[attr-defined]
+
+    # Stereochemistry complexity
+    stereo_centers = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))  # type: ignore[attr-defined]
+
+    # Aromatic ring complexity
+    aromatic_rings = sum(1 for ring in mol.GetRingInfo().AtomRings() if all(mol.GetAtomWithIdx(i).GetIsAromatic() for i in ring))  # type: ignore[attr-defined]
+
+    # Calculate base score (aim for realistic range 1-6)
+    base_score = 1.5  # Start with low base for simple molecules
+
+    # Add complexity penalties
+    base_score += 0.4 * rings  # Ring complexity
+    base_score += 0.3 * heteros / max(1, num_atoms)  # Heteroatom density
+    base_score += 0.5 * stereo_centers  # Stereochemistry
+    base_score += 0.2 * aromatic_rings  # Aromatic complexity
+
+    # Size penalty for very large molecules
+    if num_atoms > 30:
+        base_score += 0.1 * (num_atoms - 30) / 10
+
+    # Clamp to reasonable range
+    return max(1.0, min(6.0, base_score))
 
 
 # -----------------------------------------------------------------------------
@@ -214,16 +241,24 @@ def main() -> None:
     else:
         desc_df = desc_df.with_columns(pl.lit(False).alias("brenk_match"))
 
-    # Apply drug-likeness filters
-    LOGGER.info("Applying drug-likeness filters…")
+    # Apply drug-likeness filters using config parameters for DYRK1A
+    LOGGER.info("Applying drug-likeness filters for DYRK1A inhibitors…")
+
+    # Get filter parameters from config
+    mw_config = config.MOLECULAR_DESCRIPTORS_CONFIG["molecular_weight"]
+    logp_config = config.MOLECULAR_DESCRIPTORS_CONFIG["logp"]
+    tpsa_config = config.MOLECULAR_DESCRIPTORS_CONFIG["tpsa"]
+    qed_config = config.HIT_SELECTION_FILTERS["drug_likeness_filters"]["qed"]
+    sa_config = config.HIT_SELECTION_FILTERS["synthetic_accessibility"]["sa_score"]
+
     filters_expr = (
-        (pl.col("qed") > 0.6)
-        & (pl.col("sa_score") < 5.0)
-        & (pl.col("tpsa") < 90.0)
-        & (pl.col("molwt") < 500.0)
-        & (pl.col("molwt") > 100.0)
-        & (pl.col("logp") > 1.0)
-        & (pl.col("logp") < 4.0)
+        (pl.col("qed") > qed_config["min"])
+        & (pl.col("sa_score") < sa_config["max"])
+        & (pl.col("tpsa") < tpsa_config["max"])
+        & (pl.col("molwt") < mw_config["max"])
+        & (pl.col("molwt") > mw_config["min"])
+        & (pl.col("logp") > logp_config["min"])
+        & (pl.col("logp") < logp_config["max"])
     )
 
     # ADMET filters
@@ -253,8 +288,10 @@ def main() -> None:
         preds.append(float(model.predict(fp)[0]))
     filtered = filtered.with_columns(pl.Series("predicted_pIC50", preds))
 
-    active = filtered.filter(pl.col("predicted_pIC50") > 6.0)  # IC50 < 1 µM
-    LOGGER.info(f"Active candidates after pIC50 filter: {len(active)}")
+    # Apply activity filter using DYRK1A specific thresholds
+    activity_threshold = config.DYRK1A_ALZHEIMER_CONFIG["activity_thresholds"]["moderate_activity"]
+    active = filtered.filter(pl.col("predicted_pIC50") > activity_threshold)
+    LOGGER.info(f"Active DYRK1A candidates after pIC50 > {activity_threshold} filter: {len(active)}")
 
     if len(active) == 0:
         LOGGER.warning("No active molecules found – consider lowering threshold.")

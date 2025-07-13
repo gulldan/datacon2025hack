@@ -8,6 +8,7 @@ This script is automatically invoked from ``selfies_vae_generator.py`` when
 
     uv run python step_03_molecule_generation/optuna_tune_vae.py --trials 30
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,6 +36,7 @@ DEV = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ---------------------------------------------------------------------------
 # Objective helper
 # ---------------------------------------------------------------------------
+
 
 def build_model(vocab_size: int, trial: optuna.Trial):
     import step_03_molecule_generation.selfies_vae_generator as gmod

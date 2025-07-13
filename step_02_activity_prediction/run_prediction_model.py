@@ -18,6 +18,7 @@ from utils.logger import LOGGER
 
 # --- Функции ---
 
+
 def download_chembl_data(target_id: str, output_path: Path):
     """Загружает данные по активности для заданной мишени из ChEMBL.
 
@@ -37,6 +38,7 @@ def download_chembl_data(target_id: str, output_path: Path):
     df.write_parquet(output_path)
     LOGGER.info(f"Данные сохранены в {output_path}. Количество записей: {len(df)}")
 
+
 def process_data(input_path: Path, output_path: Path) -> pl.DataFrame:
     """Обрабатывает сырые данные: фильтрация, очистка, вычисление pIC50.
 
@@ -52,9 +54,7 @@ def process_data(input_path: Path, output_path: Path) -> pl.DataFrame:
 
     # 1. Фильтрация
     df = df.filter(
-        (pl.col("standard_value").is_not_null()) &
-        (pl.col("canonical_smiles").is_not_null()) &
-        (pl.col("standard_units") == "nM")
+        (pl.col("standard_value").is_not_null()) & (pl.col("canonical_smiles").is_not_null()) & (pl.col("standard_units") == "nM")
     )
 
     # 2. Удаление дубликатов
@@ -62,11 +62,7 @@ def process_data(input_path: Path, output_path: Path) -> pl.DataFrame:
 
     # 3. Вычисление pIC50
     # pIC50 = -log10(IC50 в Молях). IC50 у нас в нМ, поэтому IC50 * 10^-9
-    df = df.with_columns(
-        pl.col("standard_value").cast(pl.Float64)
-    ).with_columns(
-        pIC50=(-pl.col("standard_value") * 1e-9).log10()
-    )
+    df = df.with_columns(pl.col("standard_value").cast(pl.Float64)).with_columns(pIC50=(-pl.col("standard_value") * 1e-9).log10())
 
     # 4. Выбор нужных колонок
     df = df.select(["molecule_chembl_id", "canonical_smiles", "pIC50"])
@@ -74,6 +70,7 @@ def process_data(input_path: Path, output_path: Path) -> pl.DataFrame:
     df.write_parquet(output_path)
     LOGGER.info(f"Данные обработаны и сохранены в {output_path}. Итоговое количество молекул: {len(df)}")
     return df
+
 
 def calculate_descriptors(smiles: str):
     """Вычисляет дескрипторы RDKit для одной молекулы.
@@ -96,9 +93,11 @@ def calculate_descriptors(smiles: str):
         "TPSA": Descriptors.TPSA(mol),
     }
 
+
 def generate_fingerprints(smiles: str, n_bits: int = 2048):
     """Wrapper around ``model_utils.smiles_to_fp`` for backward compatibility."""
     return smiles_to_fp(smiles, n_bits=n_bits, radius=2)
+
 
 def run_activity_prediction_pipeline():
     """Основная функция для запуска пайплайна предсказания активности."""
@@ -173,19 +172,18 @@ def run_activity_prediction_pipeline():
     importances = np.abs(model.coeffs())
     feature_names = [f"Bit_{i}" for i in range(X.shape[1])]
 
-    feature_importance_df = pl.DataFrame({
-        "feature": feature_names,
-        "importance": importances
-    }).sort("importance", descending=True).head(20)
+    feature_importance_df = (
+        pl.DataFrame({"feature": feature_names, "importance": importances}).sort("importance", descending=True).head(20)
+    )
 
     fig_importance = px.bar(
         feature_importance_df.to_pandas(),
         x="importance",
         y="feature",
         orientation="h",
-        title="Топ-20 Важных признаков (битов фингерпринта)"
+        title="Топ-20 Важных признаков (битов фингерпринта)",
     )
-    fig_importance.update_layout(yaxis={"categoryorder":"total ascending"})
+    fig_importance.update_layout(yaxis={"categoryorder": "total ascending"})
     fig_importance.write_html(config.FEATURE_IMPORTANCE_PATH)
     LOGGER.info(f"График важности признаков сохранен в {config.FEATURE_IMPORTANCE_PATH}")
     LOGGER.info("""
@@ -195,6 +193,7 @@ def run_activity_prediction_pipeline():
     - Для глубокого анализа можно было бы использовать SHAP или сопоставить самые важные биты с конкретными химическими фрагментами в наиболее активных молекулах. Это помогло бы понять, какие функциональные группы отвечают за рост или снижение активности.
     """)
     LOGGER.info("--- Этап 2 завершен ---")
+
 
 if __name__ == "__main__":
     run_activity_prediction_pipeline()

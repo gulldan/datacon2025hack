@@ -51,12 +51,14 @@ def load_metrics() -> pd.DataFrame:
                 base = json.load(f)
         else:
             base = {"n_train": 0, "n_test": 0}
-        rows.append({
-            "model": "XGBoost (Optuna)",
-            "rmse_test": best.get("rmse"),
-            "r2_test": None,
-            **{k: base.get(k) for k in ("n_train", "n_test")}
-        })
+        rows.append(
+            {
+                "model": "XGBoost (Optuna)",
+                "rmse_test": best.get("rmse"),
+                "r2_test": None,
+                **{k: base.get(k) for k in ("n_train", "n_test")},
+            }
+        )
 
     if not rows:
         raise FileNotFoundError("No metrics JSON files found in results directory.")

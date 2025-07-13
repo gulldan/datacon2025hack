@@ -12,6 +12,7 @@ reasonable placeholder until a full Graph Residual Flow model is implemented.
 
 Dependencies: ``torch`` and ``torch_geometric``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -92,6 +93,7 @@ class GraphEncoder(nn.Module):
 # Training helper – optimise KL only (reconstruction skipped)
 # ---------------------------------------------------------------------------
 
+
 def train_encoder(dataset: list[Data]):
     loader = DataLoader(dataset, batch_size=64, shuffle=True)
     enc = GraphEncoder().to(DEV)
@@ -114,6 +116,7 @@ def train_encoder(dataset: list[Data]):
 # ---------------------------------------------------------------------------
 # Public API – compatible with SELFIES generator
 # ---------------------------------------------------------------------------
+
 
 def train_and_sample(n_samples: int = 1000) -> list[str]:
     """Train encoder (if cache absent) and return *n_samples* SMILES.

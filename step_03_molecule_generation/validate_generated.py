@@ -15,8 +15,6 @@ import random
 import sys as _sys
 from pathlib import Path
 
-import numpy as np
-
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in _sys.path:
     _sys.path.insert(0, str(ROOT_DIR))
@@ -43,10 +41,8 @@ _fp_gen = GetMorganGenerator(
 
 
 def fingerprint(mol):
-    bv = _fp_gen.GetFingerprint(mol)
-    arr = np.zeros((config.FP_BITS_LINEAR,), dtype=np.uint8)
-    DataStructs.ConvertToNumpyArray(bv, arr)  # type: ignore[arg-type]
-    return arr
+    """Return RDKit fingerprint object for Tanimoto similarity calculations."""
+    return _fp_gen.GetFingerprint(mol)
 
 
 def _canonical(smi: str) -> str | None:

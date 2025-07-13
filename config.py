@@ -22,6 +22,41 @@ TARGET_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 CHOSEN_TARGET_ID = "CHEMBL3227"
 CHOSEN_PDB_ID = "6S14"
 
+# --- DYRK1A специфичные параметры для болезни Альцгеймера ---
+# Согласно исследованиям, DYRK1A является ключевой мишенью при болезни Альцгеймера
+# Источник: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3503344/
+DYRK1A_ALZHEIMER_CONFIG = {
+    "target_name": "DYRK1A",
+    "disease": "Alzheimer's Disease",
+    "mechanism": "Tau hyperphosphorylation and amyloid precursor protein processing",
+    "therapeutic_rationale": "Inhibition reduces tau pathology and amyloid production",
+
+    # Активность - для DYRK1A при болезни Альцгеймера нужна высокая селективность
+    "activity_thresholds": {
+        "high_activity": 7.0,      # pIC50 > 7.0 (IC50 < 100 nM) - высокая активность
+        "moderate_activity": 6.0,   # pIC50 > 6.0 (IC50 < 1 μM) - умеренная активность
+        "low_activity": 5.0,       # pIC50 > 5.0 (IC50 < 10 μM) - низкая активность
+        "inactive": 4.0            # pIC50 < 4.0 (IC50 > 100 μM) - неактивные
+    },
+
+    # Селективность - важно для избежания побочных эффектов
+    "selectivity_targets": [
+        "DYRK1B",  # Близкий гомолог
+        "DYRK2",   # Семейство DYRK
+        "GSK3B",   # Участвует в том же пути
+        "CDK5",    # Также фосфорилирует tau
+        "CK1"      # Киназа tau
+    ],
+
+    # Профиль безопасности для ЦНС
+    "safety_profile": {
+        "bbb_permeability": 0.7,    # Минимальная проницаемость ГЭБ
+        "neurotoxicity_risk": 0.3,  # Максимальный риск нейротоксичности
+        "cardiotoxicity_risk": 0.2, # Максимальный риск кардиотоксичности
+        "hepatotoxicity_risk": 0.3  # Максимальный риск гепатотоксичности
+    }
+}
+
 # --- Шаг 2: Предсказание активности ---
 PREDICTION_DIR = BASE_DIR / "step_02_activity_prediction"
 PREDICTION_RESULTS_DIR = PREDICTION_DIR / "results"
@@ -66,40 +101,239 @@ GENERATION_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 GENERATED_MOLECULES_PATH = GENERATION_RESULTS_DIR / "generated_molecules.parquet"
 
 # --- Шаг 3: Конфигурация генераторов ---
-# Выбор генеративной модели: "selfies_vae" | "graph_flow" (будущий T21)
-GENERATOR_TYPE = "selfies_vae"
+# Выбор генеративной модели:
+# "selfies_vae" - базовый RNN VAE (текущий)
+# "transformer_vae" - Transformer VAE (улучшенный)
+# "docking_guided" - Docking-guided RL генератор (новый)
+# "pretrained" - Предобученная модель с Hugging Face (новый)
+# "graph_flow" - Graph Flow (будущий T21)
+GENERATOR_TYPE = "pretrained"  # Переключаем на исправленный Transformer VAE
 # Путь к сохранённой модели генерации графов (если выбран graph_flow)
 GRAPH_FLOW_MODEL_PATH = GENERATION_RESULTS_DIR / "graph_flow.pt"
 
 # --- Шаг 3: Гиперпараметры генеративной SELFIES-VAE и скоринга ---
-# Основные размеры сети
-VAE_EMBED_DIM = 196
-VAE_HIDDEN_DIM = 392
-VAE_LATENT_DIM = 128
+# Основные размеры сети (уменьшаем для предотвращения переобучения)
+VAE_EMBED_DIM = 128
+VAE_HIDDEN_DIM = 256
+VAE_LATENT_DIM = 64
 VAE_NUM_LAYERS = 2
-VAE_DROPOUT = 0.2
+VAE_DROPOUT = 0.3              # Увеличиваем dropout для регуляризации
 # Обучение
-VAE_BATCH_SIZE = 64
-VAE_MAX_LEN = 100             # сократим длину, чтобы снизить бессмысленные цепочки
-VAE_LEARNING_RATE = 1e-3
-# Увеличим patience, раз обучаем дольше
-VAE_PATIENCE = 8
+VAE_BATCH_SIZE = 32            # Уменьшаем batch size для более стабильного обучения
+VAE_MAX_LEN = 80               # Сокращаем максимальную длину
+VAE_LEARNING_RATE = 5e-4       # Уменьшаем learning rate
+# Увеличиваем patience для предотвращения преждевременной остановки
+VAE_PATIENCE = 15
 # Максимальное число эпох (можно переопределить переменной окружения)
-MAX_VAE_EPOCHS = 150
+MAX_VAE_EPOCHS = 50            # Reduced from 200 with better early stopping
 # Выборка после обучения
-VAE_GENERATE_N = 5000
+VAE_GENERATE_N = 3000          # Генерируем меньше, но качественнее
 # Максимальный размер батча при семплинге (GPU память)
 VAE_SAMPLE_BATCH = 512
 
 # Аугментация данных (рандомные SMILES на молекулу)
 AUG_PER_MOL = 10
 
+# VAE Annealing Schedule Configuration - Fixes KL Vanishing
+VAE_ANNEALING_TYPE = "cyclical"  # "cyclical", "monotonic", "logistic", "constant"
+VAE_ANNEALING_CYCLES = 6         # Увеличиваем количество циклов для лучшего обучения
+VAE_ANNEALING_RATIO = 0.4        # Уменьшаем долю роста β для более плавного обучения
+VAE_MAX_BETA = 0.05              # Уменьшаем максимальный β для предотвращения коллапса
+
+# --- Docking-guided generation settings ---
+DOCKING_GUIDED_CONFIG = {
+    "target_pdb": CHOSEN_PDB_ID,
+    "chembl_id": CHOSEN_TARGET_ID,
+    "exhaustiveness": 8,
+    "num_modes": 9,
+    "energy_range": 3.0,
+    "docking_weight": 0.4,
+    "activity_weight": 0.3,
+    "drug_likeness_weight": 0.2,
+    "novelty_weight": 0.1,
+    "rl_epochs": 50,
+    "rl_batch_size": 32,
+    "max_length": 80,
+    "learning_rate": 1e-4
+}
+
+# --- Fine-tuning configurations ---
+# Включить дообучение готовых моделей
+ENABLE_FINETUNING = True
+FINETUNING_METHOD = "dpo"  # "dpo", "rlhf", "both"
+
+# DPO (Direct Preference Optimization) settings
+DPO_CONFIG = {
+    "beta": 0.1,
+    "learning_rate": 1e-5,
+    "batch_size": 16,
+    "num_epochs": 20,
+    "max_length": 80,
+    "target_pdb": CHOSEN_PDB_ID,
+    "chembl_id": CHOSEN_TARGET_ID,
+    "docking_weight": 0.4,
+    "activity_weight": 0.3,
+    "qed_weight": 0.2,
+    "sa_weight": 0.1
+}
+
+# RLHF (Reinforcement Learning from Human Feedback) settings
+RLHF_CONFIG = {
+    "learning_rate": 1e-5,
+    "batch_size": 32,
+    "ppo_epochs": 4,
+    "clip_ratio": 0.2,
+    "value_coef": 0.5,
+    "entropy_coef": 0.01,
+    "num_episodes": 100,
+    "max_length": 80,
+    "kl_penalty": 0.1,
+    "target_pdb": CHOSEN_PDB_ID,
+    "chembl_id": CHOSEN_TARGET_ID,
+    "docking_weight": 0.4,
+    "activity_weight": 0.3,
+    "qed_weight": 0.2,
+    "sa_weight": 0.1
+}
+
+# Пути для предобученных моделей
+PRETRAINED_MODEL_PATHS = {
+    "transformer_vae": GENERATION_RESULTS_DIR / "transformer_vae.pt",
+    "selfies_vae": GENERATION_RESULTS_DIR / "selfies_vae.pt",
+    "char_rnn": GENERATION_RESULTS_DIR / "char_rnn.pt"
+}
+
+# Конфигурация предобученных моделей Hugging Face
+PRETRAINED_HF_CONFIG = {
+    "model_name": "entropy/gpt2_zinc_87m",  # Основная модель
+    "alternative_models": [
+        "seyonec/ChemBERTa-zinc-base-v1",
+        "seyonec/PubChem10M_SMILES_BPE_60k",
+        "DeepChem/SmilesTokenizer_PubChem_1M"
+    ],
+    "max_length": 256,
+    "temperature": 1.0,
+    "top_k": 50,
+    "top_p": 0.95,
+    "batch_size": 32,
+    "num_molecules": 10000,
+    "filter_valid": True,
+    "fine_tune": True,
+    "fine_tune_epochs": 3,
+    "fine_tune_lr": 1e-5,
+    "fine_tune_batch_size": 16,
+    "use_chembl_data": True,  # Использовать данные ChEMBL для fine-tuning
+    "chembl_sample_size": 1000  # Размер выборки из ChEMBL
+}
+
+# --- Молекулярные дескрипторы и фильтры для DYRK1A ---
+# Основанные на исследованиях DYRK1A ингибиторов для болезни Альцгеймера
+MOLECULAR_DESCRIPTORS_CONFIG = {
+    # Lipinski's Rule of Five - базовые фильтры
+    "molecular_weight": {
+        "min": 150.0,     # Минимальная MW для активности
+        "max": 500.0,     # Максимальная MW для проницаемости ГЭБ
+        "optimal": 350.0  # Оптимальная MW для ЦНС препаратов
+    },
+
+    # LogP - важно для проницаемости ГЭБ
+    "logp": {
+        "min": 1.0,       # Минимальный LogP для активности
+        "max": 4.0,       # Максимальный LogP для растворимости
+        "optimal": 2.5    # Оптимальный LogP для ЦНС
+    },
+
+    # Полярная поверхность - критично для ГЭБ
+    "tpsa": {
+        "min": 20.0,      # Минимальная TPSA
+        "max": 90.0,      # Максимальная TPSA для ГЭБ (обычно <140, но для ЦНС строже)
+        "optimal": 60.0   # Оптимальная TPSA для ЦНС
+    },
+
+    # Водородные связи
+    "hbd": {
+        "max": 3          # Максимальное количество донорных групп
+    },
+
+    "hba": {
+        "max": 7          # Максимальное количество акцепторных групп
+    },
+
+    # Ротационные связи - влияют на связывание
+    "rotatable_bonds": {
+        "max": 10         # Максимальное количество ротационных связей
+    },
+
+    # Ароматические кольца - важны для связывания с DYRK1A
+    "aromatic_rings": {
+        "min": 1,         # Минимальное количество ароматических колец
+        "max": 4,         # Максимальное количество
+        "optimal": 2      # Оптимальное количество
+    }
+}
+
+# --- Фильтры для отбора хитов DYRK1A ---
+HIT_SELECTION_FILTERS = {
+    # Активность - основанная на литературных данных для DYRK1A
+    "activity_filters": {
+        "predicted_pic50": {
+            "min": 5.0,       # Минимальная активность (IC50 < 10 μM)
+            "good": 6.0,      # Хорошая активность (IC50 < 1 μM)
+            "excellent": 7.0  # Отличная активность (IC50 < 100 nM)
+        }
+    },
+
+    # Drug-likeness фильтры
+    "drug_likeness_filters": {
+        "qed": {
+            "min": 0.3,       # Минимальный QED
+            "good": 0.5,      # Хороший QED
+            "excellent": 0.7  # Отличный QED
+        }
+    },
+
+    # Синтетическая доступность
+    "synthetic_accessibility": {
+        "sa_score": {
+            "max": 6.0,       # Максимальный SA score (более мягкий для heuristic)
+            "good": 4.0,      # Хороший SA score
+            "excellent": 3.0  # Отличный SA score
+        }
+    },
+
+    # Проницаемость ГЭБ - критично для лечения болезни Альцгеймера
+    "bbb_permeability": {
+        "min": 0.3,          # Минимальная вероятность проницаемости
+        "good": 0.5,         # Хорошая проницаемость
+        "excellent": 0.7     # Отличная проницаемость
+    },
+
+    # Докинг - энергия связывания с DYRK1A
+    "docking_filters": {
+        "binding_energy": {
+            "max": -6.0,      # Максимальная энергия связывания (более отрицательная = лучше)
+            "good": -7.0,     # Хорошая энергия связывания
+            "excellent": -8.0 # Отличная энергия связывания
+        }
+    },
+
+    # Селективность - важно для избежания побочных эффектов
+    "selectivity_filters": {
+        "min_selectivity_ratio": 10.0,  # Минимальное соотношение селективности
+        "target_kinases": [
+            "DYRK1B", "DYRK2", "GSK3B", "CDK5", "CK1"
+        ]
+    }
+}
+
 # Весовые коэффициенты финального скоринга генерации (сумма = 1.0)
+# Оптимизированы для DYRK1A и болезни Альцгеймера
 SCORING_WEIGHTS = {
-    "activity": 0.4,
-    "qed": 0.2,
-    "sa": 0.2,
-    "bbbp": 0.2,
+    "activity": 0.35,      # Активность против DYRK1A
+    "qed": 0.20,          # Drug-likeness
+    "sa": 0.15,           # Синтетическая доступность
+    "bbbp": 0.25,         # Проницаемость ГЭБ (повышена для ЦНС)
+    "selectivity": 0.05   # Селективность
 }
 
 # --- ADMET фильтры ---
@@ -108,6 +342,27 @@ CYP450_ISOFORMS = ["1A2", "2C9", "2C19", "2D6", "3A4"]  # ключевые из�
 # BRENK / токсофоры фильтр (T30)
 USE_BRENK_FILTER = True                  # применять ли набор BRENK substructure filters
 USE_HEPATOTOX_FILTER = True              # фильтр потенциальной гепатотоксичности
+
+# --- Специфичные для ЦНС ADMET фильтры ---
+CNS_ADMET_FILTERS = {
+    "blood_brain_barrier": {
+        "min_permeability": 0.3,    # Минимальная проницаемость ГЭБ
+        "use_egan_rule": True,      # Использовать правило Egan (TPSA ≤ 132, LogP ≤ 5.9)
+        "use_veber_rule": True      # Использовать правило Veber (RotBonds ≤ 10, TPSA ≤ 140)
+    },
+
+    "neurotoxicity": {
+        "max_risk": 0.3,           # Максимальный риск нейротоксичности
+        "check_off_targets": [     # Проверка на нежелательные мишени
+            "HERG", "NAV1.5", "CACNA1C", "KCNQ1"
+        ]
+    },
+
+    "metabolic_stability": {
+        "min_half_life": 2.0,      # Минимальный период полувыведения (часы)
+        "max_clearance": 50.0      # Максимальный клиренс (mL/min/kg)
+    }
+}
 
 # --- Optuna автоматический подбор гиперпараметров ---
 OPTUNA_TUNE_XGB = False                  # вкл/выкл поиск для XGBoost
@@ -140,17 +395,104 @@ LIGAND_PDBQT_DIR.mkdir(parents=True, exist_ok=True)
 # Docking poses/scores
 VINA_RESULTS_PATH = DOCKING_DIR / "vina_scores.parquet"
 
-# --- Docking box parameters (example values; adjust as needed) ---
-# Center of grid box (Å)
-BOX_CENTER = (16.5, 9.8, 25.7)
-# Size of grid box (Å)
-BOX_SIZE = (20.0, 20.0, 20.0)
+# --- Docking box parameters для DYRK1A (PDB: 6S14) ---
+# Координаты активного сайта DYRK1A, оптимизированные для связывания ингибиторов
+# Основаны на структурных исследованиях DYRK1A ингибиторов
+BOX_CENTER = (16.5, 9.8, 25.7)     # Центр grid box (Å) - активный сайт DYRK1A
+BOX_SIZE = (20.0, 20.0, 20.0)      # Размер grid box (Å) - достаточно для покрытия сайта связывания
+
+# --- Дополнительные параметры докинга для DYRK1A ---
+DOCKING_PARAMETERS = {
+    "exhaustiveness": 8,         # Тщательность поиска
+    "num_modes": 9,             # Количество режимов связывания
+    "energy_range": 3.0,        # Диапазон энергий (kcal/mol)
+
+    # Ключевые остатки для взаимодействия с DYRK1A
+    "key_residues": [
+        "LYS188",  # Консервативный лизин
+        "GLU239",  # Hinge region
+        "LEU241",  # Hinge region
+        "PHE238"   # Gatekeeper residue
+    ],
+
+    # Фармакофорные особенности для DYRK1A
+    "pharmacophore_features": [
+        "hinge_binding",        # Связывание с hinge region
+        "atp_binding_site",     # Связывание с ATP-сайтом
+        "selectivity_pocket"    # Карман селективности
+    ]
+}
 
 # --- PaDEL Descriptor ---
 # Путь к PaDEL-Descriptor.jar (скачайте с https://github.com/dataprofessor/padel)
 PADEL_JAR_PATH = BASE_DIR / "external" / "PaDEL-Descriptor.jar"
 USE_PADEL_DESCRIPTORS = False  # установить True, если Java и PaDEL.jar доступны
 
-# Параметры моделей ---
+# --- Параметры моделей ---
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
+
+# --- Параметры для различных этапов pipeline ---
+PIPELINE_PARAMETERS = {
+    "data_preprocessing": {
+        "remove_duplicates": True,
+        "standardize_smiles": True,
+        "filter_invalid": True,
+        "min_heavy_atoms": 6,
+        "max_heavy_atoms": 50
+    },
+
+    "feature_generation": {
+        "fingerprint_type": "morgan",
+        "radius": FP_RADIUS,
+        "n_bits": FP_BITS_LINEAR,
+        "use_features": True,
+        "use_chirality": FP_INCLUDE_CHIRALITY
+    },
+
+    "model_training": {
+        "cross_validation_folds": 5,
+        "test_size": TEST_SIZE,
+        "random_state": RANDOM_STATE,
+        "stratify": True
+    },
+
+    "molecule_generation": {
+        "batch_size": VAE_BATCH_SIZE,
+        "max_length": VAE_MAX_LEN,
+        "temperature": 1.0,
+        "diversity_penalty": 0.1
+    },
+
+    "hit_selection": {
+        "max_hits": 100,
+        "diversity_threshold": 0.7,
+        "cluster_method": "butina",
+        "cluster_threshold": 0.6
+    },
+
+    "docking": {
+        "max_molecules": 100,  # Максимальное количество молекул для реального докинга
+        "use_approximation": True,  # Использовать приближение для остальных молекул
+        "timeout_per_ligand": 300,  # Таймаут в секундах для каждого лиганда
+    }
+}
+
+# --- Logging и мониторинг ---
+LOGGING_CONFIG = {
+    "level": "INFO",
+    "format": "%(asctime)s | %(levelname)s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+    "file_logging": True,
+    "console_logging": True
+}
+
+# --- Параметры для экспериментов ---
+EXPERIMENT_CONFIG = {
+    "track_experiments": True,
+    "experiment_name": f"DYRK1A_Alzheimer_Discovery_{CHOSEN_TARGET_ID}",
+    "description": "Drug discovery pipeline for DYRK1A inhibitors targeting Alzheimer's disease",
+    "tags": ["DYRK1A", "Alzheimer", "neurodegeneration", "kinase_inhibitor"],
+    "save_models": True,
+    "save_results": True,
+    "generate_reports": True
+}

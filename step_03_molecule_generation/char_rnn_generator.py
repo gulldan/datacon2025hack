@@ -16,6 +16,7 @@ Outputs
 The script is idempotent – if model + output already exist it will skip training
 and just sample.
 """
+
 from __future__ import annotations
 
 import math
@@ -47,11 +48,11 @@ HIDDEN_DIM = 256
 NUM_LAYERS = 2
 DROPOUT = 0.2
 BATCH_SIZE = 256  # chars per batch sequence
-SEQ_LEN = 120     # truncate / pad SMILES to this length
-EPOCHS = 10       # quick demo – increase for quality
-GENERATE_N = 2000 # number of SMILES to sample after training
+SEQ_LEN = 120  # truncate / pad SMILES to this length
+EPOCHS = 10  # quick demo – increase for quality
+GENERATE_N = 2000  # number of SMILES to sample after training
 LEARNING_RATE = 1e-3
-PATIENCE = 3      # early-stopping patience (epochs)
+PATIENCE = 3  # early-stopping patience (epochs)
 
 MODEL_PATH = config.GENERATION_RESULTS_DIR / "char_rnn.pt"
 SMILES_OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
@@ -102,7 +103,7 @@ class SmilesDataset(Dataset):
         bos, eos, pad = "^", "$", "_"
         for smi in smiles:
             seq = bos + smi + eos
-            seq = seq[: SEQ_LEN]
+            seq = seq[:SEQ_LEN]
             seq += pad * max(0, SEQ_LEN - len(seq))  # pad to fixed length
             self.data.append(vocab.encode(seq))
         self.data = torch.tensor(self.data, dtype=torch.long)
@@ -161,6 +162,7 @@ class CharRNN(nn.Module):
 # Training + sampling logic
 # -----------------------------------------------------------------------------
 
+
 def train_model(model: CharRNN, ds: SmilesDataset, vocab: Vocab, device: str = "cpu") -> None:
     loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     criterion = nn.CrossEntropyLoss()
@@ -197,6 +199,7 @@ def train_model(model: CharRNN, ds: SmilesDataset, vocab: Vocab, device: str = "
 # -----------------------------------------------------------------------------
 # Main entry
 # -----------------------------------------------------------------------------
+
 
 def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"

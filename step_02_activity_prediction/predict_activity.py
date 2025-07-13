@@ -13,6 +13,7 @@ Usage examples:
 The script uses *coefficients* stored in ``config.MODEL_PATH`` (npz) and the helper
 functions in ``model_utils`` to compute Morgan fingerprints and linear predictions.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,6 +28,7 @@ from step_02_activity_prediction.model_utils import load_model, predict_smiles
 # -----------------------------------------------------------------------------
 # CLI helpers
 # -----------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DYRK1A activity predictor (pIC50)")
@@ -62,6 +64,7 @@ def write_predictions(df: pl.DataFrame, out_path: Path) -> None:
 # -----------------------------------------------------------------------------
 # Main entry
 # -----------------------------------------------------------------------------
+
 
 def main() -> None:
     args = parse_args()

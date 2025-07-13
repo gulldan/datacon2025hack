@@ -8,6 +8,7 @@ The script tunes a handful of XGBoost parameters and saves the best model to
 ``config.OPTUNA_STUDIES_DIR / "xgb_activity.db"`` so that subsequent runs
 resume.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,6 +73,7 @@ def load_dataset() -> tuple[np.ndarray, np.ndarray]:
 # ---------------------------------------------------------------------------
 # Optuna objective
 # ---------------------------------------------------------------------------
+
 
 def objective(trial: optuna.Trial):
     params = {

@@ -5,6 +5,7 @@ Usage:
 
 Saves model to ``config.XGB_MODEL_PATH``.
 """
+
 from __future__ import annotations
 
 import json

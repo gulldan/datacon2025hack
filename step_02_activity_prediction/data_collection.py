@@ -91,9 +91,7 @@ def clean_dataset(input_path: Path, output_path: Path) -> pl.DataFrame:
     )
 
     # 2. Нормализация единиц и конвертация
-    df = df.with_columns(
-        pl.col("standard_units").str.to_lowercase().alias("_units_norm")
-    )
+    df = df.with_columns(pl.col("standard_units").str.to_lowercase().alias("_units_norm"))
 
     # Вычисляем value_nM в чистом Python для совместимости с разными версиями Polars
     value_nm_list = [
