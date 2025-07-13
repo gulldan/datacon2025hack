@@ -67,7 +67,7 @@ GENERATED_MOLECULES_PATH = GENERATION_RESULTS_DIR / "generated_molecules.parquet
 
 # --- Шаг 3: Конфигурация генераторов ---
 # Выбор генеративной модели: "selfies_vae" | "graph_flow" (будущий T21)
-GENERATOR_TYPE = "graph_flow"
+GENERATOR_TYPE = "selfies_vae"
 # Путь к сохранённой модели генерации графов (если выбран graph_flow)
 GRAPH_FLOW_MODEL_PATH = GENERATION_RESULTS_DIR / "graph_flow.pt"
 

@@ -251,7 +251,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
 
     if MODEL_PATH.exists():
         model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
-        LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
+        LOGGER.info(f"Loaded pre-trained SELFIES-VAE model from {MODEL_PATH}")
     else:
         LOGGER.info(f"Training SELFIES-VAE model ({len(selfies_data)} molecules)…")
         ds = SelfiesDataset(selfies_data, vocab)

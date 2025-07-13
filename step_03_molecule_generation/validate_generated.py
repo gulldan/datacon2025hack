@@ -49,9 +49,26 @@ def fingerprint(mol):
     return arr
 
 
-def load_training_set() -> set[str]:
+def _canonical(smi: str) -> str | None:
+    m = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
+    if m is None:
+        return None
+    return Chem.MolToSmiles(m, canonical=True)  # type: ignore[attr-defined]
+
+
+def load_training_set() -> tuple[list[str], list]:
+    """Return canonical SMILES and fingerprints of training set."""
     df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
-    return set(df["SMILES"].to_list())
+    smiles_train = []
+    fps_train = []
+    for s in df["SMILES"]:
+        can = _canonical(s)
+        if not can:
+            continue
+        smiles_train.append(can)
+        mol = Chem.MolFromSmiles(can)  # type: ignore[attr-defined]
+        fps_train.append(fingerprint(mol))
+    return smiles_train, fps_train
 
 
 def main() -> None:
@@ -67,19 +84,28 @@ def main() -> None:
 
     LOGGER.info(f"Loaded {len(smiles_raw)} raw SMILES.")
 
-    seen_train = load_training_set()
+    train_smiles, train_fps = load_training_set()
 
     valid: list[str] = []
     fps: list = []
 
+    NOVEL_TANIMOTO_THRESH = 0.9
     for smi in smiles_raw:
-        if smi in seen_train:
-            continue  # skip non-novel
-        mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
+        can = _canonical(smi)
+        if not can:
+            continue
+        mol = Chem.MolFromSmiles(can)  # type: ignore[attr-defined]
         if mol is None:
             continue
-        valid.append(smi)
-        fps.append(fingerprint(mol))
+        fp = fingerprint(mol)
+
+        # novelty via Tanimoto < 0.9 to any training compound
+        sims = DataStructs.BulkTanimotoSimilarity(fp, train_fps)  # type: ignore[arg-type]
+        if sims and max(sims) >= NOVEL_TANIMOTO_THRESH:
+            continue  # too similar to known compound
+
+        valid.append(can)
+        fps.append(fp)
 
     unique_smiles = sorted(set(valid))
     valid_pct = 100 * len(unique_smiles) / len(smiles_raw) if smiles_raw else 0.0

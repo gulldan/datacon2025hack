@@ -59,8 +59,7 @@ export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 
 step "Step 2 – Activity data collection + QSAR model (scaffold split)"
 uv run python step_02_activity_prediction/data_collection.py
-uv run python step_02_activity_prediction/padel_descriptors.py
-uv run python step_02_activity_prediction/calc_descriptors.py
+uv run python step_02_activity_prediction/run_descriptor_calc.py
 uv run python step_02_activity_prediction/feature_selection.py
 uv run python step_02_activity_prediction/train_activity_model_scaffold.py
 # дополнительная сложная модель XGBoost (GPU)

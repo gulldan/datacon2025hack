@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import sys
 
-import pandas as pd  # used only for correlation computation (faster than polars)
 import polars as pl
+import polars_ds as pds  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -43,34 +43,62 @@ PADel_PATH = config.PREDICTION_RESULTS_DIR / "padel_descriptors.parquet"
 # ---------------------------------------------------------------------------
 
 
-def greedy_correlation_filter(df_num: pd.DataFrame, threshold: float) -> list[str]:
-    """Greedy selection of columns based on pair-wise Pearson correlation.
+def greedy_correlation_filter(df_num: pl.DataFrame, threshold: float) -> list[str]:
+    """Greedy selection of columns based on pair-wise Pearson correlation using *polars*.
 
-    Iterates over columns in their original order, adding a column if its
-    correlation with all *already selected* columns is below ``threshold``.
+    The algorithm preserves the *original* column order:
+
+    • The very first numeric column is always selected.
+    • For each subsequent column we compute its Pearson correlation against *each* of the
+      already selected features using ``pl.corr``. If *all* absolute correlations are
+      **below** ``threshold`` the column is kept.
+
+    Any NaNs produced by ``pl.corr`` (e.g. when a column has zero variance) are treated
+    as correlation 0.0 to avoid false positives and the NumPy divide-by-zero warnings
+    observed with the previous pandas implementation.
 
     Parameters
     ----------
-    df_num : pandas.DataFrame
-        DataFrame with only numeric columns (no SMILES).
+    df_num : polars.DataFrame
+        DataFrame containing **only numeric** descriptor columns (no SMILES).
     threshold : float
-        Absolute Pearson correlation cutoff.
+        Absolute Pearson correlation cut-off. Common values: 0.9–0.95.
 
     Returns:
     -------
-    List[str]
-        Names of selected columns.
+    list[str]
+        Names of the selected columns, in the order they appear in *df_num*.
     """
+    import numpy as np  # local import to keep global namespace clean
+
     selected: list[str] = []
+
     for col in df_num.columns:
+        # Always keep the very first feature
         if not selected:
             selected.append(col)
             continue
 
-        # Compute correlation vs already kept columns; break early if any high corr
-        corrs = df_num[selected].corrwith(df_num[col]).abs()
-        if (corrs < threshold).all():
+        keep = True
+        for sel in selected:
+            # Prefer faster polars_ds correlation expression if present
+            try:
+                corr_expr = pds.corr(pl.col(col), pl.col(sel))  # type: ignore[attr-defined]
+                corr_val = df_num.select(corr_expr).item()
+            except AttributeError:
+                # Fallback to native polars implementation
+                corr_val = df_num.select(pl.corr(pl.col(col), pl.col(sel))).item()
+
+            # Replace NaN/None with 0.0 (no correlation when variance is zero)
+            if corr_val is None or (isinstance(corr_val, float) and np.isnan(corr_val)):
+                corr_val = 0.0
+
+            if abs(corr_val) >= threshold:
+                keep = False
+                break
+        if keep:
             selected.append(col)
+
     return selected
 
 
@@ -106,10 +134,10 @@ def main() -> None:
     numeric_cols = [c for c in df.columns if c != "SMILES"]
     LOGGER.info(f"Initial number of descriptor columns: {len(numeric_cols)}")
 
-    # Convert numeric part to pandas for efficient correlation computation
-    df_num_pd = df.select(numeric_cols).to_pandas()
+    # Run greedy correlation filter directly on a polars DataFrame (no pandas conversion)
+    df_num_pl = df.select(numeric_cols)
 
-    selected_cols = greedy_correlation_filter(df_num_pd, threshold=CORR_THRESHOLD)
+    selected_cols = greedy_correlation_filter(df_num_pl, threshold=CORR_THRESHOLD)
     LOGGER.info(f"Kept {len(selected_cols)} columns after correlation filter (thr={CORR_THRESHOLD:.2f}).")
 
     # Create final DataFrame and save
