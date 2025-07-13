@@ -40,7 +40,7 @@ def load_dataset(path: Path) -> pl.DataFrame:
         raise FileNotFoundError(
             f"Processed dataset not found: {path}. Run step_02_activity_prediction/data_collection.py first."
         )
-    LOGGER.info("Loading processed dataset %s…", path)
+    LOGGER.info(f"Loading processed dataset {path}…")
     return pl.read_parquet(path)
 
 
@@ -111,7 +111,7 @@ def plot_feature_importance(model: ElasticNet, out_path: Path):
     )
     fig.update_layout(yaxis={"categoryorder": "total ascending"})
     fig.write_html(out_path)
-    LOGGER.info("Feature-importance plot saved to %s", out_path)
+    LOGGER.info(f"Feature-importance plot saved to {out_path}")
 
 
 # -----------------------------------------------------------------------------
@@ -133,11 +133,11 @@ def main() -> None:
     # Save artefacts
     config.MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez(config.MODEL_PATH, coeffs=model.coeffs(), bias=model.bias())
-    LOGGER.info("Model coefficients saved to %s (npz)", config.MODEL_PATH)
+    LOGGER.info(f"Model coefficients saved to {config.MODEL_PATH} (npz)")
 
     metrics_path = config.PREDICTION_RESULTS_DIR / "metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2))
-    LOGGER.info("Metrics written to %s", metrics_path)
+    LOGGER.info(f"Metrics written to {metrics_path}")
 
     importance_plot_path = config.FEATURE_IMPORTANCE_PATH
     plot_feature_importance(model, importance_plot_path)

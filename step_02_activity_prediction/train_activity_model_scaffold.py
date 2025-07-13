@@ -53,7 +53,7 @@ def load_dataset() -> pl.DataFrame:
         raise FileNotFoundError(
             f"Processed dataset not found: {path}. Run data_collection.py first."
         )
-    LOGGER.info("Loading processed dataset %s…", path)
+    LOGGER.info(f"Loading processed dataset {path}…")
     return pl.read_parquet(path)
 
 
@@ -149,11 +149,11 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     model_out = out_dir / "activity_model_scaffold.npz"
     np.savez(model_out, coeffs=model.coeffs(), bias=model.bias())
-    LOGGER.info("Scaffold-split model saved to %s", model_out)
+    LOGGER.info(f"Scaffold-split model saved to {model_out}")
 
     metrics_path = out_dir / "metrics_scaffold.json"
     metrics_path.write_text(json.dumps(metrics, indent=2))
-    LOGGER.info("Metrics written to %s", metrics_path)
+    LOGGER.info(f"Metrics written to {metrics_path}")
 
     LOGGER.info("--- Scaffold-split training completed ---")
 

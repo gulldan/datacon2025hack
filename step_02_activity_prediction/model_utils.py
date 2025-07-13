@@ -126,12 +126,12 @@ def load_model(path: Path | None = None) -> LinearFpModel:
             def bias(self):
                 return 0.0
 
-        LOGGER.info("Loaded XGBoost model from %s", config.XGB_MODEL_PATH)
+        LOGGER.info(f"Loaded XGBoost model from {config.XGB_MODEL_PATH}")
         return _XGBWrapper()  # type: ignore[return-value]
 
     # fallback linear
     coeffs, bias = load_coefficients(path)
-    LOGGER.info("Loaded activity model coeffs (%d bits) + bias from %s", len(coeffs), path or config.MODEL_PATH)
+    LOGGER.info(f"Loaded activity model coeffs ({len(coeffs)} bits) + bias from {path or config.MODEL_PATH}")
     return LinearFpModel(coeffs, bias)
 
 

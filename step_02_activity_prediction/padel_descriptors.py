@@ -49,7 +49,7 @@ def batch_compute(smiles: list[str], threads: int = 4, chunk_size: int = 500) ->
             attempt += 1
             try:
                 LOGGER.info(
-                    "PaDEL: chunk %d/%d (size=%d, attempt=%d, threads=%d)…",
+                    f"PaDEL: chunk {idx + 1}/{n_chunks} (size={csize}, attempt={attempt}, threads={threads})…",
                     idx + 1,
                     n_chunks,
                     csize,
@@ -77,10 +77,10 @@ def batch_compute(smiles: list[str], threads: int = 4, chunk_size: int = 500) ->
                     smiles.insert((idx + 1) * chunk_size, sub_second)  # type: ignore[arg-type]
                     csize = len(sub_first)
                     n_chunks += 1  # one extra chunk added
-                    LOGGER.warning("PaDEL timeout – splitting chunk to %d + %d", len(sub_first), len(sub_second))
+                    LOGGER.warning(f"PaDEL timeout – splitting chunk to {len(sub_first)} + {len(sub_second)}")
                     # loop continues with smaller chunk
                 else:
-                    LOGGER.error("PaDEL failed for chunk of size %d: %s", csize, exc)
+                    LOGGER.error(f"PaDEL failed for chunk of size {csize}: {exc}")
                     if csize == 1:
                         break  # skip molecule
                     # else treat as skip for this chunk
@@ -95,11 +95,11 @@ def main() -> None:
         return
 
     if OUT_PATH.exists():
-        LOGGER.info("PaDEL descriptor file already exists: %s – skipping.", OUT_PATH)
+        LOGGER.info(f"PaDEL descriptor file already exists: {OUT_PATH} – skipping.")
         return
 
     if not config.ACTIVITY_DATA_PROCESSED_PATH.exists():
-        LOGGER.error("Processed dataset not found: %s", config.ACTIVITY_DATA_PROCESSED_PATH)
+        LOGGER.error(f"Processed dataset not found: {config.ACTIVITY_DATA_PROCESSED_PATH}")
         sys.exit(1)
 
     df_proc = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
@@ -109,7 +109,7 @@ def main() -> None:
     try:
         df_padel_pd = batch_compute(smiles_list, threads=4)
     except Exception as exc:
-        LOGGER.exception("PaDEL descriptor computation failed: %s", exc)
+        LOGGER.exception(f"PaDEL descriptor computation failed: {exc}")
         sys.exit(1)
 
     # Ensure SMILES column present
@@ -120,7 +120,7 @@ def main() -> None:
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df_padel.write_parquet(OUT_PATH)
-    LOGGER.info("PaDEL descriptors saved to %s", OUT_PATH)
+    LOGGER.info(f"PaDEL descriptors saved to {OUT_PATH}")
 
 
 if __name__ == "__main__":

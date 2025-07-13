@@ -56,7 +56,7 @@ def load_training_set() -> set[str]:
 
 def main() -> None:
     if not RAW_PATH.exists():
-        LOGGER.error("Raw generated file not found: %s", RAW_PATH)
+        LOGGER.error(f"Raw generated file not found: {RAW_PATH}")
         return
 
     smiles_raw = [s.strip() for s in RAW_PATH.read_text().splitlines() if s.strip()]
@@ -65,7 +65,7 @@ def main() -> None:
         LOGGER.warning("Raw SMILES list is empty – nothing to validate. Skipping further checks.")
         return
 
-    LOGGER.info("Loaded %d raw SMILES.", len(smiles_raw))
+    LOGGER.info(f"Loaded {len(smiles_raw)} raw SMILES.")
 
     seen_train = load_training_set()
 
@@ -83,7 +83,7 @@ def main() -> None:
 
     unique_smiles = sorted(set(valid))
     valid_pct = 100 * len(unique_smiles) / len(smiles_raw) if smiles_raw else 0.0
-    LOGGER.info("Valid & novel molecules: %d (%.1f%%)", len(unique_smiles), valid_pct)
+    LOGGER.info(f"Valid & novel molecules: {len(unique_smiles)} ({valid_pct:.1f}%)")
 
     # Diversity – average pairwise Tanimoto on sample
     sample_size = min(500, len(unique_smiles))
@@ -97,12 +97,24 @@ def main() -> None:
         tan_sum += sum(sims)
         n_pairs += len(sims)
     avg_tanimoto = tan_sum / n_pairs if n_pairs else 0.0
-    LOGGER.info("Diversity (avg Tanimoto, sample %d) = %.3f", sample_size, avg_tanimoto)
+    LOGGER.info(f"Diversity (avg Tanimoto, sample {sample_size}) = {avg_tanimoto:.3f}")
 
-    # Save
-    out_df = pl.DataFrame({"smiles": unique_smiles})
+    # Preserve previously computed scores if they exist
+    if OUT_PATH.exists():
+        try:
+            prev_df = pl.read_parquet(OUT_PATH)
+            if "smiles" in prev_df.columns and len(prev_df) > 0:
+                prev_df = prev_df.filter(pl.col("smiles").is_in(unique_smiles))
+                out_df = prev_df
+            else:
+                out_df = pl.DataFrame({"smiles": unique_smiles})
+        except Exception:
+            out_df = pl.DataFrame({"smiles": unique_smiles})
+    else:
+        out_df = pl.DataFrame({"smiles": unique_smiles})
+
     out_df.write_parquet(OUT_PATH)
-    LOGGER.info("Validated molecules written to %s", OUT_PATH)
+    LOGGER.info(f"Validated molecules written to {OUT_PATH}")
 
 
 if __name__ == "__main__":

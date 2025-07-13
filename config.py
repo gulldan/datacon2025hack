@@ -149,7 +149,7 @@ BOX_SIZE = (20.0, 20.0, 20.0)
 # --- PaDEL Descriptor ---
 # Путь к PaDEL-Descriptor.jar (скачайте с https://github.com/dataprofessor/padel)
 PADEL_JAR_PATH = BASE_DIR / "external" / "PaDEL-Descriptor.jar"
-USE_PADEL_DESCRIPTORS = True  # установить True, если Java и PaDEL.jar доступны
+USE_PADEL_DESCRIPTORS = False  # установить True, если Java и PaDEL.jar доступны
 
 # Параметры моделей ---
 RANDOM_STATE = 42

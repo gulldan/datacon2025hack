@@ -76,14 +76,14 @@ def greedy_correlation_filter(df_num: pd.DataFrame, threshold: float) -> list[st
 
 def main() -> None:
     if OUT_PATH.exists():
-        LOGGER.info("Filtered descriptor file already exists: %s – skipping.", OUT_PATH)
+        LOGGER.info(f"Filtered descriptor file already exists: {OUT_PATH} – skipping.")
         sys.exit(0)
 
     if not DESC_PATH.exists():
         LOGGER.error("Descriptor matrix not found. Run calc_descriptors.py first.")
         sys.exit(1)
 
-    LOGGER.info("Reading RDKit/Mordred descriptors from %s", DESC_PATH)
+    LOGGER.info(f"Reading RDKit/Mordred descriptors from {DESC_PATH}")
     df = pl.read_parquet(DESC_PATH)
 
     # ------------------------------------------------------------------
@@ -91,7 +91,7 @@ def main() -> None:
     # ------------------------------------------------------------------
 
     if getattr(config, "USE_PADEL_DESCRIPTORS", False) and PADel_PATH.exists():
-        LOGGER.info("Merging PaDEL descriptors from %s", PADel_PATH)
+        LOGGER.info(f"Merging PaDEL descriptors from {PADel_PATH}")
         df_padel = pl.read_parquet(PADel_PATH)
 
         # Handle potential duplicate column names (very unlikely, but safe)
@@ -101,23 +101,23 @@ def main() -> None:
             df_padel = df_padel.rename(rename_mapping)
 
         df = df.join(df_padel, on="SMILES", how="left")
-        LOGGER.info("Combined descriptor matrix shape after merge: %s", df.shape)
+        LOGGER.info(f"Combined descriptor matrix shape after merge: {df.shape}")
 
     numeric_cols = [c for c in df.columns if c != "SMILES"]
-    LOGGER.info("Initial number of descriptor columns: %d", len(numeric_cols))
+    LOGGER.info(f"Initial number of descriptor columns: {len(numeric_cols)}")
 
     # Convert numeric part to pandas for efficient correlation computation
     df_num_pd = df.select(numeric_cols).to_pandas()
 
     selected_cols = greedy_correlation_filter(df_num_pd, threshold=CORR_THRESHOLD)
-    LOGGER.info("Kept %d columns after correlation filter (thr=%.2f).", len(selected_cols), CORR_THRESHOLD)
+    LOGGER.info(f"Kept {len(selected_cols)} columns after correlation filter (thr={CORR_THRESHOLD:.2f}).")
 
     # Create final DataFrame and save
     df_selected = pl.concat([df.select("SMILES"), df.select(selected_cols)], how="horizontal")
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df_selected.write_parquet(OUT_PATH)
-    LOGGER.info("Filtered descriptors saved to %s", OUT_PATH)
+    LOGGER.info(f"Filtered descriptors saved to {OUT_PATH}")
 
 
 if __name__ == "__main__":

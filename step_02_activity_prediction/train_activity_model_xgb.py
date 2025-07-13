@@ -137,7 +137,7 @@ def main() -> None:
 
     config.XGB_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(config.XGB_MODEL_PATH))
-    LOGGER.info("XGBoost model saved to %s", config.XGB_MODEL_PATH)
+    LOGGER.info(f"XGBoost model saved to {config.XGB_MODEL_PATH}")
 
     preds = booster.predict(dtest)
     rmse = float(np.sqrt(np.mean((preds - y[m_test]) ** 2)))
@@ -145,7 +145,7 @@ def main() -> None:
     metrics = {"rmse_test": rmse, "r2_test": r2, "n_train": int(m_train.sum()), "n_test": int(m_test.sum())}
     with open(config.PREDICTION_RESULTS_DIR / "metrics_xgb.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
-    LOGGER.info("Test RMSE %.3f | R² %.3f", rmse, r2)
+    LOGGER.info(f"Test RMSE {rmse:.3f} | R² {r2:.3f}")
     LOGGER.info("--- XGBoost training done ---")
 
 

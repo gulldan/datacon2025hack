@@ -123,12 +123,12 @@ def main() -> None:
 
     study_path = config.OPTUNA_STUDIES_DIR / "xgb_activity.db"
     storage_str = f"sqlite:///{study_path}"
-    LOGGER.info("Starting Optuna study at %s", storage_str)
+    LOGGER.info(f"Starting Optuna study at {storage_str}")
 
     study = optuna.create_study(direction="minimize", study_name="xgb_activity", storage=storage_str, load_if_exists=True)
     study.optimize(objective, n_trials=args.trials, show_progress_bar=True)
 
-    LOGGER.info("Best RMSE %.4f with params %s", study.best_value, study.best_params)
+    LOGGER.info(f"Best RMSE {study.best_value:.4f} with params {study.best_params}")
 
     # Train final model with best params on full data
     best_params = {
@@ -145,13 +145,13 @@ def main() -> None:
     )
 
     booster.save_model(str(config.XGB_MODEL_PATH))
-    LOGGER.info("Optuna-tuned XGBoost model saved to %s", config.XGB_MODEL_PATH)
+    LOGGER.info(f"Optuna-tuned XGBoost model saved to {config.XGB_MODEL_PATH}")
 
     # Save study summary
     summary_path = config.PREDICTION_RESULTS_DIR / "optuna_xgb_best.json"
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump({"rmse": study.best_value, "params": study.best_params}, f, indent=2)
-    LOGGER.info("Study summary written to %s", summary_path)
+    LOGGER.info(f"Study summary written to {summary_path}")
 
 
 if __name__ == "__main__":

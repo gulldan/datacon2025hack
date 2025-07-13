@@ -73,10 +73,10 @@ def main() -> None:
     # 1. Collect SMILES list
     if args.input:
         smiles_list = read_smiles_from_file(args.input)
-        logger.info("Loaded %d SMILES from %s", len(smiles_list), args.input)
+        logger.info(f"Loaded {len(smiles_list)} SMILES from {args.input}")
     else:
         smiles_list = args.smiles
-        logger.info("Received %d SMILES via CLI", len(smiles_list))
+        logger.info(f"Received {len(smiles_list)} SMILES via CLI")
 
     # 2. Predict
     model = load_model()
@@ -84,12 +84,12 @@ def main() -> None:
 
     # 3. Prepare dataframe
     result_df = pl.DataFrame({"smiles": smiles_list, "predicted_pIC50": preds})
-    logger.info("Example predictions:\n%s", result_df.head())
+    logger.info(f"Example predictions:\n{result_df.head()}")
 
     # 4. Output
     if args.output:
         write_predictions(result_df, args.output)
-        logger.info("Predictions written to %s", args.output)
+        logger.info(f"Predictions written to {args.output}")
     else:
         # Print to stdout as CSV
         sys.stdout.write(result_df.write_csv())

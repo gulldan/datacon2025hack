@@ -58,7 +58,7 @@ def main() -> None:
         return
 
     df = pl.read_parquet(src)
-    LOGGER.info("Preparing %d ligands for docking…", len(df))
+    LOGGER.info(f"Preparing {len(df)} ligands for docking…")
 
     for idx, smi in enumerate(df["smiles"]):
         pdb_path = config.LIGAND_PDBQT_DIR / f"lig_{idx}.pdb"

@@ -107,7 +107,7 @@ def train_encoder(dataset: list[Data]):
             kld.backward()
             opt.step()
             tot += kld.item() * batch.num_graphs  # type: ignore[attr-defined]
-        LOGGER.info("GraphEncoder epoch %d – KL %.4f", epoch, tot / len(dataset))
+        LOGGER.info(f"GraphEncoder epoch {epoch} – KL {tot / len(dataset):.4f}")
     return enc
 
 
@@ -126,7 +126,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
         data = np.load(cache_path)
         latents = data["z"]
         smiles_train = data["smiles"].tolist()
-        LOGGER.info("Loaded cached graph latents (%d molecules)", len(smiles_train))
+        LOGGER.info(f"Loaded cached graph latents ({len(smiles_train)} molecules)")
     else:
         LOGGER.info("Preparing graph dataset…")
         df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
@@ -137,7 +137,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
             if g is not None and g.edge_index.size(1) > 0:
                 dataset.append(g)
                 smiles_train.append(smi)
-        LOGGER.info("Graphs: %d", len(dataset))
+        LOGGER.info(f"Graphs: {len(dataset)}")
 
         enc = train_encoder(dataset)
         enc.eval()
@@ -150,7 +150,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
                 latents_list.append(mu.cpu().numpy())
         latents = np.vstack(latents_list)
         np.savez_compressed(cache_path, z=latents, smiles=smiles_train)
-        LOGGER.info("Latents cached to %s", cache_path)
+        LOGGER.info(f"Latents cached to {cache_path}")
 
     # Build simple k-NN (cosine) index
     from sklearn.neighbors import NearestNeighbors  # type: ignore
@@ -176,7 +176,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
         if len(unique_smiles) >= n_samples:
             break
 
-    LOGGER.info("Graph generator produced %d SMILES (unique) via nearest-neighbour lookup", len(unique_smiles))
+    LOGGER.info(f"Graph generator produced {len(unique_smiles)} SMILES (unique) via nearest-neighbour lookup")
     # Save raw output
     out_path = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
     Path(out_path).write_text("\n".join(unique_smiles))

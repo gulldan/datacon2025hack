@@ -224,7 +224,7 @@ def train(model: SelfiesVAE, ds: SelfiesDataset):
             opt.step()
             tot += loss.item() * src.size(0)
         avg = tot / len(ds)
-        LOGGER.info("VAE epoch %d/%d – loss %.4f", epoch, EPOCHS, avg)
+        LOGGER.info(f"VAE epoch {epoch}/{EPOCHS} – loss {avg:.4f}")
         if avg < best - 1e-4:
             best = avg
             patience = PATIENCE
@@ -253,10 +253,10 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
         model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
         LOGGER.info("Loaded pre-trained SELFIES-VAE model from %s", MODEL_PATH)
     else:
-        LOGGER.info("Training SELFIES-VAE model (%d molecules)…", len(selfies_data))
+        LOGGER.info(f"Training SELFIES-VAE model ({len(selfies_data)} molecules)…")
         ds = SelfiesDataset(selfies_data, vocab)
         train(model, ds)
-        LOGGER.info("Training finished. Model saved to %s", MODEL_PATH)
+        LOGGER.info(f"Training finished. Model saved to {MODEL_PATH}")
 
     sampled = model.sample(vocab, num=n_samples * 2)  # oversample – later filter unique/valid
     unique_smiles = []
@@ -272,5 +272,5 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
     with open(SMILES_OUT_PATH, "w", encoding="utf-8") as f:
         for smi in unique_smiles:
             f.write(f"{smi}\n")
-    LOGGER.info("Generated %d unique SMILES saved to %s", len(unique_smiles), SMILES_OUT_PATH)
+    LOGGER.info(f"Generated {len(unique_smiles)} unique SMILES saved to {SMILES_OUT_PATH}")
     return unique_smiles

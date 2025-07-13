@@ -64,7 +64,7 @@ if not config.ACTIVITY_DATA_PROCESSED_PATH.exists():
 proc_df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
 smiles_list: list[str] = proc_df["SMILES"].to_list()  # type: ignore[no-any-return]
 
-LOGGER.info("Calculating RDKit descriptors for %d molecules…", len(smiles_list))
+LOGGER.info(f"Calculating RDKit descriptors for {len(smiles_list)} molecules…")
 
 # RDKit 2D descriptors (~200, but many redundant); we'll take the official list (208)
 RD_NAMES_FUNCS: list[tuple[str, Any]] = Descriptors.descList  # type: ignore[attr-defined]
@@ -90,8 +90,7 @@ processed_smiles: set[str] = set()
 if OUT_PATH.exists():
     existing_df = pl.read_parquet(OUT_PATH)
     processed_smiles = set(existing_df["SMILES"].to_list())  # type: ignore[no-any-return]
-    LOGGER.info("Found existing descriptor file with %d molecules; will compute %d new ones.",
-                len(processed_smiles), len(smiles_list) - len(processed_smiles))
+    LOGGER.info(f"Found existing descriptor file with {len(processed_smiles)} molecules; will compute {len(smiles_list) - len(processed_smiles)} new ones.")
 
 smiles_to_compute = [s for s in smiles_list if s not in processed_smiles]
 
@@ -124,7 +123,7 @@ def compute_descriptors(smi: str) -> dict[str, Any] | None:
     return rec
 
 
-LOGGER.info("Computing descriptors in parallel using %d threads…", min(8, len(smiles_to_compute)))
+LOGGER.info(f"Computing descriptors in parallel using {min(8, len(smiles_to_compute))} threads…")
 
 records: list[dict[str, Any]] = []
 if smiles_to_compute:
@@ -170,9 +169,9 @@ df_desc = df_desc.select(["SMILES"] + var_keep)
 # Deduplicate in case SMILES duplicates existed
 df_desc = df_desc.unique("SMILES")
 
-LOGGER.info("Final descriptor matrix shape after merge/filter: %s", df_desc.shape)
+LOGGER.info(f"Final descriptor matrix shape after merge/filter: {df_desc.shape}")
 
 # Save to disk
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 df_desc.write_parquet(OUT_PATH)
-LOGGER.info("Descriptors saved to %s", OUT_PATH)
+LOGGER.info(f"Descriptors saved to {OUT_PATH}")

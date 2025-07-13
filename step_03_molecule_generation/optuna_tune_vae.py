@@ -106,7 +106,7 @@ def main() -> None:
     storage = f"sqlite:///{study_path}"
 
     study = optuna.create_study(direction="minimize", study_name="vae_generator", storage=storage, load_if_exists=True)
-    LOGGER.info("Starting VAE Optuna study (%d trials)…", args.trials)
+    LOGGER.info(f"Starting VAE Optuna study ({args.trials} trials)…")
     study.optimize(objective, n_trials=args.trials)
 
     LOGGER.info("Best loss %.4f with params %s", study.best_value, study.best_params)
@@ -114,7 +114,7 @@ def main() -> None:
     out_json = config.GENERATION_RESULTS_DIR / "optuna_vae_best.json"
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump({"loss": study.best_value, "params": study.best_params}, f, indent=2)
-    LOGGER.info("Saved best params to %s", out_json)
+    LOGGER.info(f"Saved best params to {out_json}")
 
 
 if __name__ == "__main__":

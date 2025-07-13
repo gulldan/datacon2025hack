@@ -65,7 +65,7 @@ torch.manual_seed(SEED)
 def load_smiles() -> list[str]:
     """Load canonical SMILES from processed activity dataset."""
     if not config.ACTIVITY_DATA_PROCESSED_PATH.exists():
-        LOGGER.error("Processed dataset not found: %s", config.ACTIVITY_DATA_PROCESSED_PATH)
+        LOGGER.error(f"Processed dataset not found: {config.ACTIVITY_DATA_PROCESSED_PATH}")
         sys.exit(1)
     import polars as pl
 
@@ -180,7 +180,7 @@ def train_model(model: CharRNN, ds: SmilesDataset, vocab: Vocab, device: str = "
             optimizer.step()
             total_loss += loss.item() * x.size(0)
         avg_loss = total_loss / len(ds)
-        LOGGER.info("Epoch %d/%d – loss %.4f", epoch, EPOCHS, avg_loss)
+        LOGGER.info(f"Epoch {epoch}/{EPOCHS} – loss {avg_loss:.4f}")
 
         # Early stopping
         if avg_loss + 1e-4 < best_loss:
@@ -226,7 +226,7 @@ def main() -> None:
     model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
     model.eval()
 
-    LOGGER.info("Sampling %d SMILES…", GENERATE_N)
+    LOGGER.info(f"Sampling {GENERATE_N} SMILES…")
     generated: list[str] = []
     while len(generated) < GENERATE_N:
         smi = model.sample(vocab)
@@ -237,11 +237,11 @@ def main() -> None:
         generated.append(Chem.MolToSmiles(mol))  # type: ignore[attr-defined] # canonicalise
     # Remove duplicates + ones present in training set
     unique_new = sorted({s for s in generated if s not in smiles_list})
-    LOGGER.info("Obtained %d unique novel molecules.", len(unique_new))
+    LOGGER.info(f"Obtained {len(unique_new)} unique novel molecules.")
 
     # Persist output
     SMILES_OUT_PATH.write_text("\n".join(unique_new))
-    LOGGER.info("Generated SMILES written to %s", SMILES_OUT_PATH)
+    LOGGER.info(f"Generated SMILES written to {SMILES_OUT_PATH}")
 
 
 if __name__ == "__main__":
