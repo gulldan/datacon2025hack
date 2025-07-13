@@ -59,7 +59,9 @@ export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 
 step "Step 2 – Activity data collection + QSAR model (scaffold split)"
 uv run python step_02_activity_prediction/data_collection.py
+uv run python step_02_activity_prediction/padel_descriptors.py
 uv run python step_02_activity_prediction/calc_descriptors.py
+uv run python step_02_activity_prediction/feature_selection.py
 uv run python step_02_activity_prediction/train_activity_model_scaffold.py
 # дополнительная сложная модель XGBoost (GPU)
 uv run python step_02_activity_prediction/train_activity_model_xgb.py
@@ -83,6 +85,8 @@ fi
 
 step "Step 4 – Hit selection"
 uv run python step_04_hit_selection/run_hit_selection.py
+
+uv run python step_02_activity_prediction/generate_summary_report.py
 
 step "Pipeline completed. Review the following artefacts:"
 echo "  • step_02_activity_prediction/results/metrics_scaffold.json"

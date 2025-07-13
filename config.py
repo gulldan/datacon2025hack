@@ -105,6 +105,8 @@ SCORING_WEIGHTS = {
 # --- ADMET фильтры ---
 USE_CYP450_FILTERS = True                # применять ли CYP450 фильтр
 CYP450_ISOFORMS = ["1A2", "2C9", "2C19", "2D6", "3A4"]  # ключевые изоферменты
+# BRENK / токсофоры фильтр (T30)
+USE_BRENK_FILTER = True                  # применять ли набор BRENK substructure filters
 USE_HEPATOTOX_FILTER = True              # фильтр потенциальной гепатотоксичности
 
 # --- Optuna автоматический подбор гиперпараметров ---
@@ -144,6 +146,11 @@ BOX_CENTER = (16.5, 9.8, 25.7)
 # Size of grid box (Å)
 BOX_SIZE = (20.0, 20.0, 20.0)
 
-# --- Параметры моделей ---
+# --- PaDEL Descriptor ---
+# Путь к PaDEL-Descriptor.jar (скачайте с https://github.com/dataprofessor/padel)
+PADEL_JAR_PATH = BASE_DIR / "external" / "PaDEL-Descriptor.jar"
+USE_PADEL_DESCRIPTORS = False  # установить True, если Java и PaDEL.jar доступны
+
+# Параметры моделей ---
 RANDOM_STATE = 42
 TEST_SIZE = 0.2

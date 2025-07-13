@@ -21,12 +21,14 @@ import sys
 
 # pylint: disable=wrong-import-position
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import numpy as np
 import polars as pl
 from rdkit import Chem  # type: ignore
 from rdkit.Chem import Descriptors  # type: ignore
+from tqdm import tqdm  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -50,10 +52,6 @@ np.seterr(over="ignore", invalid="ignore")
 # ---------------------------------------------------------------------------
 
 OUT_PATH = config.PREDICTION_RESULTS_DIR / "descriptors.parquet"
-
-if OUT_PATH.exists():
-    LOGGER.info("Descriptor file already exists: %s — skipping.", OUT_PATH)
-    sys.exit(0)
 
 # ---------------------------------------------------------------------------
 # Load processed dataset
@@ -82,42 +80,80 @@ except ImportError:  # fallback if mordred not installed
     LOGGER.warning("mordred package not installed – only RDKit descriptors will be computed.")
     use_mordred = False
 
-records: list[dict[str, Any]] = []
-for smi in smiles_list:
+
+# ---------------------------------------------------------------------------
+# Incremental caching: skip molecules already processed
+# ---------------------------------------------------------------------------
+
+existing_df: pl.DataFrame | None = None
+processed_smiles: set[str] = set()
+if OUT_PATH.exists():
+    existing_df = pl.read_parquet(OUT_PATH)
+    processed_smiles = set(existing_df["SMILES"].to_list())  # type: ignore[no-any-return]
+    LOGGER.info("Found existing descriptor file with %d molecules; will compute %d new ones.",
+                len(processed_smiles), len(smiles_list) - len(processed_smiles))
+
+smiles_to_compute = [s for s in smiles_list if s not in processed_smiles]
+
+
+def compute_descriptors(smi: str) -> dict[str, Any] | None:
+    """Compute RDKit (+ optional Mordred) descriptors for a single SMILES."""
     mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
     if mol is None:
-        continue
+        return None
+
     rec: dict[str, Any] = {"SMILES": smi}
 
-    # RDKit
+    # RDKit descriptors
     for name, func in RD_NAMES_FUNCS:
         try:
             val = func(mol)
-            # ensure numeric
             rec[name] = float(val) if val is not None else np.nan
         except Exception:
             rec[name] = np.nan
 
-    # Mordred
     if use_mordred:
         try:
             mord_vals = calc(mol)  # type: ignore[arg-type]
             for key, val in mord_vals.items():  # type: ignore[attr-defined]
-                # Some values are strings / None
                 rec[str(key)] = float(val) if isinstance(val, (int, float)) else np.nan
         except Exception:
-            # If Mordred fails for molecule, fill NaNs later
+            # If Mordred fails for this molecule, leave NaNs; they'll be dropped later if all null
             pass
 
-    records.append(rec)
+    return rec
 
-# Convert to polars and drop columns with all NaN
-LOGGER.info("Building DataFrame…")
-df_desc = pl.DataFrame(records).with_columns(
-    [pl.col(col).cast(pl.Float64, strict=False) if col != "SMILES" else pl.col(col) for col in records[0].keys()]
-).drop_nulls(subset=["SMILES"])
 
-# Remove columns that are all null or have zero variance
+LOGGER.info("Computing descriptors in parallel using %d threads…", min(8, len(smiles_to_compute)))
+
+records: list[dict[str, Any]] = []
+if smiles_to_compute:
+    with ThreadPoolExecutor(max_workers=min(8, len(smiles_to_compute))) as executor:
+        for result in tqdm(executor.map(compute_descriptors, smiles_to_compute), total=len(smiles_to_compute)):
+            if result is not None:
+                records.append(result)
+
+# Combine with any existing descriptors
+if existing_df is not None and not existing_df.is_empty():
+    df_existing = existing_df  # already a polars DataFrame
+else:
+    df_existing = None
+
+if records:
+    LOGGER.info("Building DataFrame for newly computed records…")
+    df_new = pl.DataFrame(records).with_columns(
+        [pl.col(col).cast(pl.Float64, strict=False) if col != "SMILES" else pl.col(col) for col in records[0].keys()]
+    ).drop_nulls(subset=["SMILES"])
+
+    df_desc = df_new if df_existing is None else pl.concat([df_existing, df_new], how="vertical")
+else:
+    # Nothing new computed
+    if df_existing is None:
+        LOGGER.error("No descriptors computed and no existing file present — aborting.")
+        sys.exit(1)
+    df_desc = df_existing
+
+# After concatenation ensure columns with all NaN removed
 numeric_cols = [c for c in df_desc.columns if c != "SMILES"]
 non_null_cols = [c for c in numeric_cols if df_desc[c].null_count() < len(df_desc)]
 
@@ -131,8 +167,12 @@ for col in non_null_cols:
 
 df_desc = df_desc.select(["SMILES"] + var_keep)
 
-LOGGER.info("Final descriptor matrix shape: %s", df_desc.shape)
+# Deduplicate in case SMILES duplicates existed
+df_desc = df_desc.unique("SMILES")
 
+LOGGER.info("Final descriptor matrix shape after merge/filter: %s", df_desc.shape)
+
+# Save to disk
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 df_desc.write_parquet(OUT_PATH)
 LOGGER.info("Descriptors saved to %s", OUT_PATH)

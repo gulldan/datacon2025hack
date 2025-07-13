@@ -16,6 +16,7 @@ selection scripts.
 """
 from __future__ import annotations
 
+# pylint: disable=wrong-import-position
 import sys as _sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ import numpy as np
 import polars as pl
 from rdkit import Chem  # type: ignore
 from rdkit.Chem import QED, Crippen, Descriptors, rdMolDescriptors  # type: ignore
+from rdkit.Chem.FilterCatalog import FilterCatalog, FilterCatalogParams  # type: ignore
 
 # Inject repo root to sys.path for config imports when executed as script
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -185,7 +187,30 @@ def main() -> None:
 
     desc_df = pl.DataFrame(desc_list)
 
-    # Apply drug-likeness filters (T7)
+    # ------------------------------------------------------------------
+    # BRENK / токсофоры фильтр
+    # ------------------------------------------------------------------
+
+    if config.USE_BRENK_FILTER:
+        LOGGER.info("Applying BRENK substructure filter…")
+        params = FilterCatalogParams()
+        params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)  # type: ignore[attr-defined]
+        brenk_catalog = FilterCatalog(params)
+
+        def _brenk_flag(smiles: str) -> bool:
+            mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
+            if mol is None:
+                return False  # invalid treated as pass (will be filtered earlier)
+            return brenk_catalog.HasMatch(mol)
+
+        # Mark molecules that hit any BRENK alert
+        desc_df = desc_df.with_columns(
+            pl.Series("brenk_match", [_brenk_flag(s) for s in desc_df["smiles"]])  # type: ignore[arg-type]
+        )
+    else:
+        desc_df = desc_df.with_columns(pl.lit(False).alias("brenk_match"))
+
+    # Apply drug-likeness filters
     LOGGER.info("Applying drug-likeness filters…")
     filters_expr = (
         (pl.col("qed") > 0.6)
