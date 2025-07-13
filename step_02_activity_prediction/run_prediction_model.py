@@ -1,4 +1,6 @@
 # step_02_activity_prediction/run_prediction_model.py
+from pathlib import Path
+
 import joblib
 import numpy as np
 import plotly.express as px
@@ -6,11 +8,9 @@ import plotly.graph_objects as go
 import polars as pl
 from chembl_webresource_client.new_client import new_client
 from plotly.subplots import make_subplots
+from polars_ds.linear_models import ElasticNet
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
 
 import config
 from utils.logger import LOGGER
@@ -137,23 +137,39 @@ def run_activity_prediction_pipeline():
     X = np.array([fp for fp in df["canonical_smiles"].apply(generate_fingerprints) if fp is not None])
     y = df.filter(pl.col("canonical_smiles").is_in(df["canonical_smiles"]))["pIC50"].to_numpy()
 
-    # 4. Обучение модели
-    LOGGER.info("Обучение модели предсказания активности...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=config.TEST_SIZE, random_state=config.RANDOM_STATE
-    )
+    # 4. Обучение модели (ElasticNet)
+    LOGGER.info("Обучение модели предсказания активности с помощью ElasticNet (polars_ds)...")
 
-    model = RandomForestRegressor(n_estimators=100, random_state=config.RANDOM_STATE, n_jobs=-1)
+    # Простое разделение на train/test без sklearn
+    rng = np.random.default_rng(config.RANDOM_STATE)
+    indices = np.arange(len(X))
+    rng.shuffle(indices)
+    test_size = int(len(X) * config.TEST_SIZE)
+    test_indices = indices[:test_size]
+    train_indices = indices[test_size:]
+
+    X_train, X_test = X[train_indices], X[test_indices]
+    y_train, y_test = y[train_indices], y[test_indices]
+
+    model = ElasticNet(l1_reg=0.001, l2_reg=0.01, fit_bias=True, max_iter=5000)
     model.fit(X_train, y_train)
 
     # 5. Оценка модели
-    y_pred_train = model.predict(X_train)
-    y_pred_test = model.predict(X_test)
+    def _rmse(a: np.ndarray, b: np.ndarray) -> float:
+        return float(np.sqrt(np.mean((a - b) ** 2)))
 
-    r2_train = r2_score(y_train, y_pred_train)
-    r2_test = r2_score(y_test, y_pred_test)
-    rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
-    rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+    def _r2(a: np.ndarray, b: np.ndarray) -> float:
+        ss_res = float(np.sum((a - b) ** 2))
+        ss_tot = float(np.sum((a - np.mean(a)) ** 2))
+        return 1.0 - ss_res / ss_tot if ss_tot != 0 else 0.0
+
+    y_pred_train = model.predict(X_train).flatten()
+    y_pred_test = model.predict(X_test).flatten()
+
+    r2_train = _r2(y_train, y_pred_train)
+    r2_test = _r2(y_test, y_pred_test)
+    rmse_train = _rmse(y_train, y_pred_train)
+    rmse_test = _rmse(y_test, y_pred_test)
 
     LOGGER.info(f"Метрики на обучающей выборке: R^2 = {r2_train:.3f}, RMSE = {rmse_train:.3f}")
     LOGGER.info(f"Метрики на тестовой выборке: R^2 = {r2_test:.3f}, RMSE = {rmse_test:.3f}")
@@ -164,7 +180,8 @@ def run_activity_prediction_pipeline():
 
     # 6. Интерпретация результатов
     LOGGER.info("Интерпретация результатов модели...")
-    importances = model.feature_importances_
+    # Для ElasticNet используем абсолютные значения коэффициентов как меру важности признака
+    importances = np.abs(model.coeffs())
     feature_names = [f"Bit_{i}" for i in range(X.shape[1])]
 
     feature_importance_df = pl.DataFrame({

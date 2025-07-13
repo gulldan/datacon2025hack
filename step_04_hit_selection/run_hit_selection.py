@@ -1,7 +1,17 @@
 # step_04_hit_selection/run_hit_selection.py
+import sys as _sys
+from pathlib import Path
+
+import numpy as np
 import polars as pl
-from rdkit import Chem
-from rdkit.SimDivFilters import MaxMinPicker
+from rdkit import Chem  # type: ignore
+from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect  # type: ignore
+from rdkit.SimDivFilters import MaxMinPicker  # type: ignore
+
+# Ensure project root in PYTHONPATH when executed as script
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in _sys.path:
+    _sys.path.insert(0, str(ROOT_DIR))
 
 import config
 from utils.logger import LOGGER
@@ -41,7 +51,7 @@ def run_hit_selection_pipeline():
     # 2. Определение критериев отбора (фильтрация)
     # Эти пороги - ключевой элемент, который нужно обосновывать.
     # Они основаны на "правилах большого пальца" в медицинской химии.
-    activity_threshold = 6.5  # pIC50 > 6.5 (соответствует IC50 < ~316 нМ)
+    activity_threshold = 6.0  # pIC50 > 6.0 (IC50 ~1 µM)
     qed_threshold = 0.5       # Drug-likeness > 0.5
     sa_score_threshold = 4.0  # Синтезируемость < 4.0 (чем ниже, тем проще)
     bbbp_threshold = 0.7      # Вероятность прохождения ГЭБ > 70%
@@ -49,12 +59,17 @@ def run_hit_selection_pipeline():
     LOGGER.info("Применение фильтров для отбора хитов...")
     LOGGER.info(f"Критерии: pIC50 > {activity_threshold}, QED > {qed_threshold}, SA_score < {sa_score_threshold}, BBBP > {bbbp_threshold}")
 
-    hits_df = df.filter(
-        (pl.col("predicted_pIC50") > activity_threshold) &
-        (pl.col("qed") > qed_threshold) &
-        (pl.col("sa_score") < sa_score_threshold) &
-        (pl.col("bbbp_prob") > bbbp_threshold)
+    expr = (
+        (pl.col("predicted_pIC50") > activity_threshold)
+        & (pl.col("qed") > qed_threshold)
+        & (pl.col("sa_score") < sa_score_threshold)
     )
+    if "bbbp_prob" in df.columns:
+        expr = expr & (pl.col("bbbp_prob") > bbbp_threshold)
+    else:
+        LOGGER.warning("Column 'bbbp_prob' not present – skipping BBBP filter.")
+
+    hits_df = df.filter(expr)
     LOGGER.info(f"Найдено {len(hits_df)} молекул после первичной фильтрации.")
 
     if len(hits_df) == 0:
@@ -62,13 +77,18 @@ def run_hit_selection_pipeline():
         return
 
     # 3. Молекулярный докинг (для отфильтрованных кандидатов)
-    smiles_to_dock = hits_df["smiles"].to_list()
-    docking_results = run_molecular_docking(smiles_to_dock)
-
-    docking_df = pl.DataFrame({
-        "smiles": list(docking_results.keys()),
-        "docking_score": list(docking_results.values())
-    })
+    if config.VINA_RESULTS_PATH.exists():
+        LOGGER.info("Using real AutoDock Vina scores from %s", config.VINA_RESULTS_PATH)
+        docking_df = pl.read_parquet(config.VINA_RESULTS_PATH)
+        docking_df = docking_df.rename({"ligand_id": "smiles"}) if "ligand_id" in docking_df.columns else docking_df
+    else:
+        LOGGER.warning("Vina scores not found – falling back to random docking stub.")
+        smiles_to_dock = hits_df["smiles"].to_list()
+        docking_results = run_molecular_docking(smiles_to_dock)
+        docking_df = pl.DataFrame({
+            "smiles": list(docking_results.keys()),
+            "docking_score": list(docking_results.values())
+        })
 
     hits_df = hits_df.join(docking_df, on="smiles")
 
@@ -87,7 +107,7 @@ def run_hit_selection_pipeline():
     num_final_hits = min(10, len(final_hits)) # Выберем до 10 самых разнообразных
     LOGGER.info(f"Отбор {num_final_hits} наиболее разнообразных молекул из кандидатов...")
 
-    mols = [Chem.MolFromSmiles(s) for s in final_hits["smiles"]]
+    mols = [Chem.MolFromSmiles(s) for s in final_hits["smiles"]]  # type: ignore[attr-defined]
     fps = [GetMorganFingerprintAsBitVect(m, 2, nBits=2048) for m in mols]
 
     picker = MaxMinPicker()

@@ -1,10 +1,9 @@
 # step_03_molecule_generation/run_generation.py
-import joblib
 import numpy as np
 import polars as pl
-from rdkit import Chem
-from rdkit.Chem import QED, Crippen
-from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
+from rdkit import Chem  # type: ignore
+from rdkit.Chem import QED, Crippen  # type: ignore
+from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect  # type: ignore
 
 import config
 from utils.logger import LOGGER
@@ -26,7 +25,7 @@ def calculate_sa_score(smiles: str):
 
 def calculate_bbbp(smiles: str):
     """Простая модель для предсказания проницаемости через ГЭБ (BBB)."""
-    mol = Chem.MolFromSmiles(smiles)
+    mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if not mol:
         return 0.0
     # Правило Egan: TPSA <= 132 и LogP <= 5.9
@@ -55,7 +54,7 @@ def get_scoring_function(activity_model):
         Returns:
             float: Итоговый скор от 0 до 1.
         """
-        mol = Chem.MolFromSmiles(smiles)
+        mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
         if not mol or not smiles:
             return 0.0
 
@@ -109,9 +108,11 @@ def run_generation_pipeline():
     оценку пула сгенерированных молекул с помощью скоринговой функции.
     """)
 
-    # 2. Загрузка модели предсказания активности
-    LOGGER.info(f"Загрузка модели предсказания из {config.MODEL_PATH}")
-    activity_model = joblib.load(config.MODEL_PATH)
+    # 2. Загрузка модели предсказания активности (coeffs + bias)
+    from step_02_activity_prediction.model_utils import load_model, smiles_to_fp
+
+    activity_model = load_model(config.MODEL_PATH)
+    LOGGER.info("Загружены коэффициенты модели активности (%d bits)", len(activity_model.coeffs()))
 
     # 3. Создание скоринговой функции
     scoring_function = get_scoring_function(activity_model)
@@ -134,12 +135,14 @@ def run_generation_pipeline():
 
     results = []
     for smiles in generated_smiles_pool:
-        mol = Chem.MolFromSmiles(smiles)
+        mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
         if not mol: continue
 
         score = scoring_function(smiles)
-        fp = GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
-        pIC50 = activity_model.predict(np.array(fp).reshape(1, -1))[0]
+        fp_arr = smiles_to_fp(smiles)
+        if fp_arr is None:
+            continue
+        pIC50 = float(activity_model.predict(fp_arr)[0])
 
         results.append({
             "smiles": smiles,
