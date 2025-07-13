@@ -60,6 +60,8 @@ export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 step "Step 2 – Activity data collection + QSAR model (scaffold split)"
 uv run python step_02_activity_prediction/data_collection.py
 uv run python step_02_activity_prediction/train_activity_model_scaffold.py
+# дополнительная сложная модель XGBoost (GPU)
+uv run python step_02_activity_prediction/train_activity_model_xgb.py
 
 step "Step 3 – Molecule generation & filtering (SELFIES-VAE)"
 uv run python step_03_molecule_generation/run_generation.py

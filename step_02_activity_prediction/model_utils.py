@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
+import xgboost as xgb  # type: ignore
 from rdkit import Chem, DataStructs  # type: ignore
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
@@ -104,7 +105,30 @@ def load_coefficients(path: Path | None = None) -> tuple[np.ndarray, float]:
 
 
 def load_model(path: Path | None = None) -> LinearFpModel:
-    """Return ``LinearFpModel`` ready for inference."""
+    """Return prediction model – tries XGBoost first, then linear."""
+    if config.XGB_MODEL_PATH.exists():
+        booster = xgb.Booster()
+        booster.load_model(str(config.XGB_MODEL_PATH))
+
+        class _XGBWrapper:
+            def predict(self, fp_arr):  # type: ignore[annotated-assignment]
+                if isinstance(fp_arr, list):
+                    fp_arr = np.vstack(fp_arr)
+                if fp_arr.ndim == 1:
+                    fp_arr = fp_arr.reshape(1, -1)
+                dmat = xgb.DMatrix(fp_arr)
+                return booster.predict(dmat)
+
+            def coeffs(self):  # placeholder
+                return np.array([])
+
+            def bias(self):
+                return 0.0
+
+        LOGGER.info("Loaded XGBoost model from %s", config.XGB_MODEL_PATH)
+        return _XGBWrapper()  # type: ignore[return-value]
+
+    # fallback linear
     coeffs, bias = load_coefficients(path)
     LOGGER.info("Loaded activity model coeffs (%d bits) + bias from %s", len(coeffs), path or config.MODEL_PATH)
     return LinearFpModel(coeffs, bias)
@@ -123,23 +147,44 @@ def predict_smiles(smiles_iter: Iterable[str], model: LinearFpModel | None = Non
     if model is None:
         model = load_model()
 
-    preds: list[float] = []
-    fps_batch: list[np.ndarray] = []
-    idx_map: list[int] = []
-
     smiles_list = list(smiles_iter)
-    # Build fingerprints; keep track of indices to restore order
-    for idx, smi in enumerate(smiles_list):
-        fp = smiles_to_fp(smi)
-        if fp is None:
-            preds.append(np.nan)  # placeholder
-            continue
-        idx_map.append(idx)
-        fps_batch.append(fp)
-        preds.append(0.0)  # dummy, will be replaced
+    preds: list[float] = [np.nan] * len(smiles_list)
 
-    if fps_batch:
-        X = np.vstack(fps_batch)
+    from rdkit.Chem import AllChem, Descriptors  # type: ignore
+
+    # detector: if model has coeffs with length>0 -> linear; else XGB
+    use_linear = hasattr(model, "coeffs") and len(model.coeffs()) > 0  # type: ignore[arg-type]
+
+    RD_FUNCS = [
+        Descriptors.MolWt,  # type: ignore[attr-defined]
+        Descriptors.MolLogP,  # type: ignore[attr-defined]
+        Descriptors.TPSA,  # type: ignore[attr-defined]
+        Descriptors.NumHDonors,  # type: ignore[attr-defined]
+        Descriptors.NumHAcceptors,  # type: ignore[attr-defined]
+        Descriptors.RingCount,  # type: ignore[attr-defined]
+    ]
+
+    feat_batch: list[np.ndarray] = []
+    idx_map: list[int] = []
+    for idx, smi in enumerate(smiles_list):
+        mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
+        if mol is None:
+            continue
+        fp = smiles_to_fp(smi, n_bits=1024 if not use_linear else 2048)
+        if fp is None:
+            continue
+        if use_linear:
+            arr = fp
+        else:
+            desc_vals = np.asarray([f(mol) for f in RD_FUNCS], dtype=np.float32)
+            fp_short = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024)  # type: ignore[attr-defined]
+            fp_arr = np.asarray(fp_short, dtype=np.float32)
+            arr = np.concatenate([fp_arr, desc_vals])
+        feat_batch.append(arr)
+        idx_map.append(idx)
+
+    if feat_batch:
+        X = np.vstack(feat_batch)
         batch_preds = model.predict(X).tolist()
         for i, pred_val in zip(idx_map, batch_preds, strict=False):
             preds[i] = float(pred_val)

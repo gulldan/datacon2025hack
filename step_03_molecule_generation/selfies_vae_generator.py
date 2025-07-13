@@ -40,7 +40,7 @@ NUM_LAYERS = 2
 DROPOUT = 0.2
 BATCH_SIZE = 64
 MAX_LEN = 120  # SELFIES tokens (covers >99 % dataset)
-EPOCHS = 15
+EPOCHS = config.MAX_VAE_EPOCHS
 LEARNING_RATE = 1e-3
 MODEL_PATH = config.GENERATION_RESULTS_DIR / "selfies_vae.pt"
 SMILES_OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
@@ -83,12 +83,21 @@ def load_selfies() -> list[str]:
         raise FileNotFoundError
     df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
     smiles_list: list[str] = df["SMILES"].unique().to_list()  # type: ignore[no-any-return]
-    selfies_list = []
+
+    from rdkit import Chem  # type: ignore
+
+    selfies_list: list[str] = []
+    AUG_PER_MOL = 10  # количество рандомных перестановок SMILES
     for smi in smiles_list:
-        try:
-            selfies_list.append(sf.encoder(smi))
-        except sf.EncoderError:
+        mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
+        if mol is None:
             continue
+        for _ in range(AUG_PER_MOL):
+            rand_smi = Chem.MolToSmiles(mol, doRandom=True)  # type: ignore[attr-defined]
+            try:
+                selfies_list.append(sf.encoder(rand_smi))
+            except sf.EncoderError:
+                continue
     return selfies_list
 
 
@@ -249,7 +258,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
         train(model, ds)
         LOGGER.info("Training finished. Model saved to %s", MODEL_PATH)
 
-    sampled = model.sample(vocab, num=n_samples * 2)  # oversample – later filter unique/valid
+    sampled = model.sample(vocab, num=n_samples * 4)  # oversample – later filter unique/valid
     unique_smiles = []
     seen = set()
     for smi in sampled:

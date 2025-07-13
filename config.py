@@ -30,6 +30,8 @@ PREDICTION_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVITY_DATA_RAW_PATH = RAW_DATA_DIR / f"{CHOSEN_TARGET_ID}_raw.parquet"
 ACTIVITY_DATA_PROCESSED_PATH = PROCESSED_DATA_DIR / f"{CHOSEN_TARGET_ID}_processed.parquet"
 MODEL_PATH = PREDICTION_RESULTS_DIR / "activity_model.npz"
+# Альтернативная, более сложная модель (XGBoost)
+XGB_MODEL_PATH = PREDICTION_RESULTS_DIR / "activity_model_xgb.json"
 EDA_PLOTS_PATH = PREDICTION_RESULTS_DIR / "eda_plots.html"
 FEATURE_IMPORTANCE_PATH = PREDICTION_RESULTS_DIR / "feature_importance.html"
 
@@ -66,6 +68,12 @@ VINA_RESULTS_PATH = DOCKING_DIR / "vina_scores.parquet"
 BOX_CENTER = (16.5, 9.8, 25.7)
 # Size of grid box (Å)
 BOX_SIZE = (20.0, 20.0, 20.0)
+
+# --- Гиперпараметры генеративной модели ---
+# Максимальное число эпох обучения VAE. Можно пробросить через переменную окружения:
+import os as _os
+
+MAX_VAE_EPOCHS = int(_os.getenv("VAE_EPOCHS", "60"))
 
 # --- Параметры моделей ---
 RANDOM_STATE = 42

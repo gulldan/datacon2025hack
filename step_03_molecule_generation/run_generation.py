@@ -147,11 +147,24 @@ def run_generation_pipeline():
             "bbbp_prob": calculate_bbbp(smiles)
         })
 
-    generated_df = pl.DataFrame(results)
+    generated_df = pl.DataFrame(results) if results else pl.DataFrame(schema={
+        "smiles": pl.Utf8,
+        "final_score": pl.Float64,
+        "predicted_pIC50": pl.Float64,
+        "qed": pl.Float64,
+        "logp": pl.Float64,
+        "sa_score": pl.Float64,
+        "bbbp_prob": pl.Float64,
+    })
+
     generated_df.write_parquet(config.GENERATED_MOLECULES_PATH)
 
-    LOGGER.info(f"Сгенерированные и оцененные молекулы сохранены в {config.GENERATED_MOLECULES_PATH}")
-    LOGGER.info(f"Топ-5 молекул по итоговому скору:\n{generated_df.sort('final_score', descending=True).head(5)}")
+    LOGGER.info("Сгенерированные и оцененные молекулы сохранены в %s", config.GENERATED_MOLECULES_PATH)
+    if len(generated_df) == 0:
+        LOGGER.warning("SELFIES-VAE не сгенерировал валидные молекулы – проверьте качество модели или увеличьте эпохи обучения.")
+    else:
+        top5 = generated_df.sort("final_score", descending=True).head(5)
+        LOGGER.info("Топ-5 молекул по итоговому скору:\n%s", top5)
     LOGGER.info("--- Этап 3 завершен ---")
 
 if __name__ == "__main__":
