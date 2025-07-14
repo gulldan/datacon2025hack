@@ -376,7 +376,7 @@ USE_VINA_DOCKING = True
 
 # --- Выбор режима докинга ---
 # Параметр для выбора между CPU и GPU докингом в pipeline
-DOCKING_MODE = "gpu"  # "cpu", "gpu"
+DOCKING_MODE = "cpu"  # "cpu", "gpu"
 # "cpu" - использовать только CPU Vina
 # "gpu" - использовать GPU AutoDock-GPU с автоматическим fallback на CPU
 

@@ -406,7 +406,7 @@ def run_hit_selection_pipeline():
 
         # Инициализируем ускоренный докинг
         logger.info("🚀 Инициализация ускоренного докинга")
-        from .accelerated_docking import AcceleratedDocking
+        from step_04_hit_selection.accelerated_docking import AcceleratedDocking
         docking_engine = AcceleratedDocking(optimal_config)
 
         # Запускаем докинг

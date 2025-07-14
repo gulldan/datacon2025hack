@@ -288,7 +288,12 @@ class PretrainedMolecularGenerator:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
 
                 optimizer.zero_grad()
-                outputs = self.model(**batch)
+                # Explicitly pass labels to avoid loss_type warning
+                outputs = self.model(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch["attention_mask"],
+                    labels=batch["labels"]
+                )
                 loss = outputs.loss
                 loss.backward()
                 optimizer.step()

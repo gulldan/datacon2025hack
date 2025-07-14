@@ -277,15 +277,37 @@ def main() -> None:
         return
 
     # Activity prediction (T8)
-    LOGGER.info("Predicting activity with linear model…")
+    LOGGER.info("Predicting activity with XGBoost model…")
     model = load_model()
     preds = []
     for smi in filtered["smiles"]:
-        fp = smiles_to_fp(smi)
+        mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
+        if mol is None:
+            preds.append(np.nan)
+            continue
+
+        # Create XGBoost-compatible fingerprint (1024 bits + 6 descriptors)
+        fp_bits = config.FP_BITS_XGB
+        fp = smiles_to_fp(smi, n_bits=fp_bits)
         if fp is None:
             preds.append(np.nan)
             continue
-        preds.append(float(model.predict(fp)[0]))
+
+        # Add RDKit descriptors for XGBoost model
+        RD_FUNCS = [
+            Descriptors.MolWt,  # type: ignore[attr-defined]
+            Descriptors.MolLogP,  # type: ignore[attr-defined]
+            Descriptors.TPSA,  # type: ignore[attr-defined]
+            Descriptors.NumHDonors,  # type: ignore[attr-defined]
+            Descriptors.NumHAcceptors,  # type: ignore[attr-defined]
+            Descriptors.RingCount,  # type: ignore[attr-defined]
+        ]
+        desc_vals = np.asarray([f(mol) for f in RD_FUNCS], dtype=np.float32)
+
+        # Combine fingerprint and descriptors
+        combined_features = np.concatenate([fp, desc_vals])
+
+        preds.append(float(model.predict(combined_features)[0]))
     filtered = filtered.with_columns(pl.Series("predicted_pIC50", preds))
 
     # Apply activity filter using DYRK1A specific thresholds
