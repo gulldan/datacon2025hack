@@ -104,7 +104,10 @@ def clean_dataset(input_path: Path, output_path: Path) -> pl.DataFrame:
     # 3. Удаляем дубликаты по SMILES (оставляем запись с наименьшим значением IC50)
     df = df.sort("value_nM").unique(subset=["canonical_smiles"], keep="first")
 
-    # 4. Удаление выбросов (IQR)
+    # 4. Удаление нулевых и отрицательных значений
+    df = df.filter(pl.col("value_nM") > 0)
+
+    # 5. Удаление выбросов (IQR)
     q1, q3 = df.select(pl.col("value_nM").quantile(0.25).alias("q1"), pl.col("value_nM").quantile(0.75).alias("q3")).row(0)
     iqr = q3 - q1
     lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr

@@ -113,6 +113,9 @@ def main() -> None:
     feats = []
     targets = []
     for smi, ic50 in zip(df["SMILES"], df["IC50_nM"], strict=False):
+        # Skip zero or negative IC50 values that would cause log10 issues
+        if ic50 <= 0:
+            continue
         out = compute_features(smi)
         if out is None:
             continue

@@ -106,6 +106,9 @@ def main() -> None:
     fps: list[np.ndarray] = []
     y: list[float] = []
     for smiles, ic50 in zip(df["SMILES"], df["IC50_nM"], strict=False):
+        # Skip zero or negative IC50 values that would cause log10 issues
+        if ic50 <= 0:
+            continue
         fp = smiles_to_fp(smiles)
         if fp is None:
             continue
