@@ -2,6 +2,7 @@
 Based on recent research in molecular generation and attention mechanisms.
 Implements Cyclical Annealing Schedule to fix KL vanishing problem.
 """
+
 from __future__ import annotations
 
 import math
@@ -38,17 +39,17 @@ SMILES_OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
 
 def cyclical_annealing(step: int, total_steps: int, n_cycles: int = 4, ratio: float = 0.5, max_beta: float = 1.0) -> float:
     """Cyclical annealing schedule for β parameter.
-    
+
     Based on: "Cyclical Annealing Schedule: A Simple Approach to Mitigating KL Vanishing"
     https://arxiv.org/abs/1903.10145
-    
+
     Args:
         step: Current training step
         total_steps: Total number of training steps
         n_cycles: Number of cycles
         ratio: Proportion used to increase β (0 < ratio < 1)
         max_beta: Maximum β value
-    
+
     Returns:
         Current β value
     """
@@ -68,13 +69,13 @@ def cyclical_annealing(step: int, total_steps: int, n_cycles: int = 4, ratio: fl
 
 def monotonic_annealing(step: int, total_steps: int, max_beta: float = 1.0, warmup_steps: int = 1000) -> float:
     """Monotonic annealing schedule for β parameter.
-    
+
     Args:
         step: Current training step
         total_steps: Total number of training steps
         max_beta: Maximum β value
         warmup_steps: Number of warmup steps
-    
+
     Returns:
         Current β value
     """
@@ -86,13 +87,13 @@ def monotonic_annealing(step: int, total_steps: int, max_beta: float = 1.0, warm
 
 def logistic_annealing(step: int, total_steps: int, max_beta: float = 1.0, k: float = 0.0025) -> float:
     """Logistic annealing schedule for β parameter.
-    
+
     Args:
         step: Current training step
         total_steps: Total number of training steps
         max_beta: Maximum β value
         k: Steepness parameter
-    
+
     Returns:
         Current β value
     """
@@ -134,12 +135,7 @@ class TransformerEncoder(nn.Module):
         self.pos_encoder = PositionalEncoding(d_model, MAX_LEN)
 
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=d_model * 4,
-            dropout=dropout,
-            activation="gelu",
-            batch_first=True
+            d_model=d_model, nhead=nhead, dim_feedforward=d_model * 4, dropout=dropout, activation="gelu", batch_first=True
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)
 
@@ -185,12 +181,7 @@ class TransformerDecoder(nn.Module):
         self.latent_to_hidden = nn.Linear(LATENT_DIM, d_model)
 
         decoder_layer = nn.TransformerDecoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=d_model * 4,
-            dropout=dropout,
-            activation="gelu",
-            batch_first=True
+            d_model=d_model, nhead=nhead, dim_feedforward=d_model * 4, dropout=dropout, activation="gelu", batch_first=True
         )
         self.transformer = nn.TransformerDecoder(decoder_layer, num_layers)
 
@@ -214,12 +205,7 @@ class TransformerDecoder(nn.Module):
         causal_mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool().to(tgt.device)
 
         # Transformer decoding
-        output = self.transformer(
-            tgt_embedded,
-            memory,
-            tgt_mask=causal_mask,
-            tgt_key_padding_mask=tgt_mask
-        )
+        output = self.transformer(tgt_embedded, memory, tgt_mask=causal_mask, tgt_key_padding_mask=tgt_mask)
 
         # Project to vocabulary
         logits = self.output_proj(output)
@@ -241,8 +227,9 @@ class TransformerVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, src: torch.Tensor, tgt: torch.Tensor, src_mask: torch.Tensor | None = None,
-                tgt_mask: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self, src: torch.Tensor, tgt: torch.Tensor, src_mask: torch.Tensor | None = None, tgt_mask: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Encode
         mu, logvar = self.encoder(src, src_mask)
 
@@ -321,8 +308,9 @@ class TransformerVAE(nn.Module):
             return all_smiles
 
 
-def improved_loss_fn(logits: torch.Tensor, targets: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor,
-                    beta: float = 1.0, free_bits: float = 0.0) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def improved_loss_fn(
+    logits: torch.Tensor, targets: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor, beta: float = 1.0, free_bits: float = 0.0
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Improved loss function with KL annealing and free bits."""
     batch_size = targets.size(0)
 
@@ -331,12 +319,7 @@ def improved_loss_fn(logits: torch.Tensor, targets: torch.Tensor, mu: torch.Tens
     targets_flat = targets.reshape(-1)
 
     # Reconstruction loss
-    recon_loss = F.cross_entropy(
-        logits_flat,
-        targets_flat,
-        ignore_index=0,
-        reduction="sum"
-    ) / batch_size
+    recon_loss = F.cross_entropy(logits_flat, targets_flat, ignore_index=0, reduction="sum") / batch_size
 
     # KL divergence loss with free bits
     kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
@@ -348,9 +331,11 @@ def improved_loss_fn(logits: torch.Tensor, targets: torch.Tensor, mu: torch.Tens
     return total_loss, recon_loss, kl_loss
 
 
-def train_transformer_vae(model: TransformerVAE, dataloader: DataLoader, num_epochs: int = 100, annealing_type: str = "cyclical") -> None:
+def train_transformer_vae(
+    model: TransformerVAE, dataloader: DataLoader, num_epochs: int = 100, annealing_type: str = "cyclical"
+) -> None:
     """Train the Transformer VAE with cyclical annealing schedule to fix KL vanishing.
-    
+
     Args:
         model: TransformerVAE model
         dataloader: Training data loader
@@ -388,19 +373,23 @@ def train_transformer_vae(model: TransformerVAE, dataloader: DataLoader, num_epo
 
             # Calculate beta using chosen annealing schedule
             if annealing_type == "cyclical":
-                beta = cyclical_annealing(step_count, total_steps, n_cycles=config.VAE_ANNEALING_CYCLES,
-                                        ratio=config.VAE_ANNEALING_RATIO, max_beta=config.VAE_MAX_BETA)
+                beta = cyclical_annealing(
+                    step_count,
+                    total_steps,
+                    n_cycles=config.VAE_ANNEALING_CYCLES,
+                    ratio=config.VAE_ANNEALING_RATIO,
+                    max_beta=config.VAE_MAX_BETA,
+                )
             elif annealing_type == "monotonic":
-                beta = monotonic_annealing(step_count, total_steps, max_beta=config.VAE_MAX_BETA,
-                                         warmup_steps=total_steps//10)
+                beta = monotonic_annealing(step_count, total_steps, max_beta=config.VAE_MAX_BETA, warmup_steps=total_steps // 10)
             elif annealing_type == "logistic":
                 beta = logistic_annealing(step_count, total_steps, max_beta=config.VAE_MAX_BETA, k=0.0025)
             else:
                 beta = 1.0  # Default constant beta
 
             # Create masks
-            src_mask = (src == 0)  # Padding mask
-            tgt_mask = (tgt == 0)  # Padding mask
+            src_mask = src == 0  # Padding mask
+            tgt_mask = tgt == 0  # Padding mask
 
             optimizer.zero_grad()
 
@@ -408,9 +397,7 @@ def train_transformer_vae(model: TransformerVAE, dataloader: DataLoader, num_epo
             logits, mu, logvar = model(src, tgt[:, :-1], src_mask, tgt_mask[:, :-1])
 
             # Compute loss with current beta
-            loss, recon_loss, kl_loss = improved_loss_fn(
-                logits, tgt[:, 1:], mu, logvar, beta, free_bits=0.0
-            )
+            loss, recon_loss, kl_loss = improved_loss_fn(logits, tgt[:, 1:], mu, logvar, beta, free_bits=0.0)
 
             # Backward pass
             loss.backward()
@@ -432,18 +419,24 @@ def train_transformer_vae(model: TransformerVAE, dataloader: DataLoader, num_epo
         for i in range(len(dataloader)):
             step = epoch_start_step + i
             if annealing_type == "cyclical":
-                epoch_beta += cyclical_annealing(step, total_steps, n_cycles=config.VAE_ANNEALING_CYCLES,
-                                               ratio=config.VAE_ANNEALING_RATIO, max_beta=config.VAE_MAX_BETA)
+                epoch_beta += cyclical_annealing(
+                    step,
+                    total_steps,
+                    n_cycles=config.VAE_ANNEALING_CYCLES,
+                    ratio=config.VAE_ANNEALING_RATIO,
+                    max_beta=config.VAE_MAX_BETA,
+                )
             elif annealing_type == "monotonic":
-                epoch_beta += monotonic_annealing(step, total_steps, max_beta=config.VAE_MAX_BETA,
-                                                warmup_steps=total_steps//10)
+                epoch_beta += monotonic_annealing(step, total_steps, max_beta=config.VAE_MAX_BETA, warmup_steps=total_steps // 10)
             elif annealing_type == "logistic":
                 epoch_beta += logistic_annealing(step, total_steps, max_beta=config.VAE_MAX_BETA, k=0.0025)
             else:
                 epoch_beta += 1.0
         epoch_beta /= len(dataloader)
 
-        LOGGER.info(f"Epoch {epoch+1}/{num_epochs} - Loss: {avg_loss:.4f}, Recon: {avg_recon:.4f}, KL: {avg_kl:.4f}, Beta: {epoch_beta:.4f}")
+        LOGGER.info(
+            f"Epoch {epoch + 1}/{num_epochs} - Loss: {avg_loss:.4f}, Recon: {avg_recon:.4f}, KL: {avg_kl:.4f}, Beta: {epoch_beta:.4f}"
+        )
 
         scheduler.step()
 

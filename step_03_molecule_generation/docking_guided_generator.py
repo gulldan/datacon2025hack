@@ -24,9 +24,11 @@ from utils.logger import LOGGER
 
 logger = LOGGER
 
+
 @dataclass
 class DockingConfig:
     """Configuration for docking-guided generation."""
+
     target_pdb: str = "6S14"
     chembl_id: str = "CHEMBL3227"
     exhaustiveness: int = 8
@@ -37,15 +39,13 @@ class DockingConfig:
     drug_likeness_weight: float = 0.2
     novelty_weight: float = 0.1
 
+
 class PocketPredictor(nn.Module):
     """Predicts binding pockets from protein structure."""
 
     def __init__(self, d_model: int = 256):
         super().__init__()
-        self.pocket_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model, nhead=8, batch_first=True),
-            num_layers=4
-        )
+        self.pocket_encoder = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead=8, batch_first=True), num_layers=4)
         self.pocket_classifier = nn.Linear(d_model, 1)
 
     def forward(self, protein_features: torch.Tensor) -> torch.Tensor:
@@ -53,6 +53,7 @@ class PocketPredictor(nn.Module):
         encoded = self.pocket_encoder(protein_features)
         pocket_probs = torch.sigmoid(self.pocket_classifier(encoded))
         return pocket_probs
+
 
 class DockingEvaluator:
     """Handles molecular docking evaluation using AutoDock Vina."""
@@ -144,6 +145,7 @@ class DockingEvaluator:
                     return float(parts[3])  # Binding affinity
         return -1000.0  # Default if parsing fails
 
+
 class DockingGuidedGenerator(nn.Module):
     """Molecular generator with integrated docking guidance."""
 
@@ -210,10 +212,10 @@ class DockingGuidedGenerator(nn.Module):
 
             # Combined reward
             total_reward = (
-                self.config.docking_weight * docking_reward +
-                self.config.activity_weight * activity_reward +
-                self.config.drug_likeness_weight * qed_score +
-                self.config.novelty_weight * novelty_score
+                self.config.docking_weight * docking_reward
+                + self.config.activity_weight * activity_reward
+                + self.config.drug_likeness_weight * qed_score
+                + self.config.novelty_weight * novelty_score
             )
 
             return total_reward
@@ -222,8 +224,7 @@ class DockingGuidedGenerator(nn.Module):
             logger.error(f"Reward calculation failed for {smiles}: {e}")
             return -1000.0
 
-    def generate_molecules(self, vocab, n_samples: int = 100,
-                          max_length: int = 80) -> list[str]:
+    def generate_molecules(self, vocab, n_samples: int = 100, max_length: int = 80) -> list[str]:
         """Generate molecules with docking guidance."""
         self.eval()
         generated_molecules = []
@@ -285,8 +286,8 @@ class DockingGuidedGenerator(nn.Module):
 
         return np.mean(rewards) if rewards else 0.0
 
-def train_docking_guided_generator(vocab, config: DockingConfig,
-                                 num_epochs: int = 100):
+
+def train_docking_guided_generator(vocab, config: DockingConfig, num_epochs: int = 100):
     """Train the docking-guided generator."""
     logger.info("Starting docking-guided generator training")
 
@@ -296,26 +297,30 @@ def train_docking_guided_generator(vocab, config: DockingConfig,
 
     # Training loop
     for epoch in range(num_epochs):
-        logger.info(f"Epoch {epoch+1}/{num_epochs}")
+        logger.info(f"Epoch {epoch + 1}/{num_epochs}")
 
         # Perform RL step
         avg_reward = model.reinforcement_learning_step(vocab)
 
         if (epoch + 1) % 10 == 0:
-            logger.info(f"Epoch {epoch+1}, Average reward: {avg_reward:.4f}")
+            logger.info(f"Epoch {epoch + 1}, Average reward: {avg_reward:.4f}")
 
             # Save checkpoint
-            checkpoint_path = f"results/docking_guided_generator_epoch_{epoch+1}.pt"
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "epoch": epoch,
-                "avg_reward": avg_reward
-            }, checkpoint_path)
+            checkpoint_path = f"results/docking_guided_generator_epoch_{epoch + 1}.pt"
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "epoch": epoch,
+                    "avg_reward": avg_reward,
+                },
+                checkpoint_path,
+            )
 
             logger.info(f"Saved checkpoint: {checkpoint_path}")
 
     return model
+
 
 if __name__ == "__main__":
     # Example usage

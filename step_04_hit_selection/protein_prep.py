@@ -8,6 +8,7 @@ Requirements: biopython, openbabel (CLI `obabel`).
 Usage:
     uv run python step_04_hit_selection/protein_prep.py
 """
+
 from __future__ import annotations
 
 import subprocess

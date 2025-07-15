@@ -71,11 +71,12 @@ def _calculate_sa_score(mol: Chem.Mol) -> float:
     except Exception:
         return 5.0
 
+
 def calculate_sa_score(smiles: str):
     """Расчет Synthetic Accessibility score."""
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if not mol:
-        return 5.0 # Fallback to heuristic approximation
+        return 5.0  # Fallback to heuristic approximation
     # Fallback to heuristic approximation
     return _calculate_sa_score(mol)
 
@@ -89,8 +90,9 @@ def calculate_bbbp(smiles: str):
     tpsa = QED.properties(mol).PSA
     logp = Crippen.MolLogP(mol)
     if tpsa <= 132 and logp <= 5.9:
-        return np.random.uniform(0.7, 1.0) # Вероятно проходит
-    return np.random.uniform(0.0, 0.3) # Вероятно не проходит
+        return np.random.uniform(0.7, 1.0)  # Вероятно проходит
+    return np.random.uniform(0.0, 0.3)  # Вероятно не проходит
+
 
 def get_scoring_function(activity_model):
     """Создает и возвращает скоринговую функцию для оценки сгенерированных молекул.
@@ -102,6 +104,7 @@ def get_scoring_function(activity_model):
     Returns:
         function: Функция, принимающая SMILES и возвращающая итоговый скор.
     """
+
     def score_molecule(smiles: str) -> float:
         """Оценивает молекулу по нескольким параметрам.
 
@@ -141,24 +144,27 @@ def get_scoring_function(activity_model):
             bv = gen.GetFingerprint(mol)
             fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
             DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
-            desc_vals = np.asarray([
-                Descriptors.MolWt(mol),  # type: ignore[attr-defined]
-                Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
-                Descriptors.TPSA(mol),  # type: ignore[attr-defined]
-                Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
-                Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
-                Descriptors.RingCount(mol),  # type: ignore[attr-defined]
-            ], dtype=np.float32)
+            desc_vals = np.asarray(
+                [
+                    Descriptors.MolWt(mol),  # type: ignore[attr-defined]
+                    Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
+                    Descriptors.TPSA(mol),  # type: ignore[attr-defined]
+                    Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
+                    Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
+                    Descriptors.RingCount(mol),  # type: ignore[attr-defined]
+                ],
+                dtype=np.float32,
+            )
             arr = np.concatenate([fp_arr, desc_vals])
 
         predicted_pic50 = activity_model.predict(arr.reshape(1, -1))[0]
         # Нормализуем pIC50 (например, цель > 7.0)
-        activity_score = min(1.0, max(0.0, (predicted_pic50 - 5.0) / 3.0)) # Цель [5, 8] -> [0, 1]
+        activity_score = min(1.0, max(0.0, (predicted_pic50 - 5.0) / 3.0))  # Цель [5, 8] -> [0, 1]
 
         # 3. Синтезируемость (SA Score)
         sa_score_val = calculate_sa_score(smiles)
         # Нормализуем (цель < 4)
-        sa_score = max(0.0, (5.0 - sa_score_val) / 4.0) # Цель [5, 1] -> [0, 1]
+        sa_score = max(0.0, (5.0 - sa_score_val) / 4.0)  # Цель [5, 1] -> [0, 1]
 
         # 4. Проницаемость через ГЭБ (BBBP)
         bbbp_score = calculate_bbbp(smiles)
@@ -167,10 +173,10 @@ def get_scoring_function(activity_model):
         weights = config.SCORING_WEIGHTS
 
         final_score = (
-            weights["activity"] * activity_score +
-            weights["qed"] * qed_score +
-            weights["sa"] * sa_score +
-            weights["bbbp"] * bbbp_score
+            weights["activity"] * activity_score
+            + weights["qed"] * qed_score
+            + weights["sa"] * sa_score
+            + weights["bbbp"] * bbbp_score
         )
 
         # Добавляем компонент селективности если доступен
@@ -183,9 +189,9 @@ def get_scoring_function(activity_model):
 
     return score_molecule
 
+
 def run_generation_pipeline():
-    """Основная функция для запуска пайплайна генерации молекул.
-    """
+    """Основная функция для запуска пайплайна генерации молекул."""
     LOGGER.info("--- Запуск этапа 3: Генерация молекул ---")
 
     # 1. Обоснование выбора генеративной модели
@@ -220,6 +226,7 @@ def run_generation_pipeline():
         LOGGER.info("=== Запуск дообучения моделей ===")
         try:
             from step_03_molecule_generation.run_finetuning import main as run_finetuning
+
             run_finetuning()
         except Exception as e:
             LOGGER.error(f"Fine-tuning failed: {e}")
@@ -228,10 +235,12 @@ def run_generation_pipeline():
     if config.GENERATOR_TYPE == "selfies_vae":
         LOGGER.info("Генерируем молекулы SELFIES-VAE…")
         from step_03_molecule_generation.selfies_vae_generator import train_and_sample
+
         generated_smiles = train_and_sample(config.VAE_GENERATE_N)
     elif config.GENERATOR_TYPE == "transformer_vae":
         LOGGER.info("Генерируем молекулы Transformer VAE…")
         from step_03_molecule_generation.transformer_vae_generator import train_and_sample_transformer
+
         generated_smiles = train_and_sample_transformer(config.VAE_GENERATE_N)
 
     elif config.GENERATOR_TYPE == "docking_guided":
@@ -252,15 +261,11 @@ def run_generation_pipeline():
             docking_weight=config.DOCKING_GUIDED_CONFIG["docking_weight"],
             activity_weight=config.DOCKING_GUIDED_CONFIG["activity_weight"],
             drug_likeness_weight=config.DOCKING_GUIDED_CONFIG["drug_likeness_weight"],
-            novelty_weight=config.DOCKING_GUIDED_CONFIG["novelty_weight"]
+            novelty_weight=config.DOCKING_GUIDED_CONFIG["novelty_weight"],
         )
 
         # Обучаем и генерируем
-        model = train_docking_guided_generator(
-            vocab,
-            docking_config,
-            num_epochs=config.DOCKING_GUIDED_CONFIG["rl_epochs"]
-        )
+        model = train_docking_guided_generator(vocab, docking_config, num_epochs=config.DOCKING_GUIDED_CONFIG["rl_epochs"])
 
         # Генерируем финальные молекулы
         generated_smiles = model.generate_molecules(vocab, config.VAE_GENERATE_N)
@@ -268,6 +273,7 @@ def run_generation_pipeline():
     elif config.GENERATOR_TYPE == "graph_flow":
         LOGGER.info("Генерируем молекулы Graph Flow…")
         from step_03_molecule_generation.graph_generator import train_and_sample
+
         generated_smiles = train_and_sample(config.VAE_GENERATE_N)
 
     elif config.GENERATOR_TYPE == "pretrained":
@@ -275,8 +281,7 @@ def run_generation_pipeline():
         from step_03_molecule_generation.pretrained_generator import PretrainedMolecularGenerator
 
         generator = PretrainedMolecularGenerator(
-            model_name=config.PRETRAINED_HF_CONFIG["model_name"],
-            max_length=config.PRETRAINED_HF_CONFIG["max_length"]
+            model_name=config.PRETRAINED_HF_CONFIG["model_name"], max_length=config.PRETRAINED_HF_CONFIG["max_length"]
         )
 
         # Fine-tune if requested
@@ -293,6 +298,7 @@ def run_generation_pipeline():
                     sample_size = config.PRETRAINED_HF_CONFIG["chembl_sample_size"]
                     if len(target_smiles) > sample_size:
                         import random
+
                         random.seed(config.RANDOM_STATE)
                         target_smiles = random.sample(target_smiles, sample_size)
 
@@ -301,7 +307,7 @@ def run_generation_pipeline():
                         target_smiles=target_smiles,
                         learning_rate=config.PRETRAINED_HF_CONFIG["fine_tune_lr"],
                         epochs=config.PRETRAINED_HF_CONFIG["fine_tune_epochs"],
-                        batch_size=config.PRETRAINED_HF_CONFIG["fine_tune_batch_size"]
+                        batch_size=config.PRETRAINED_HF_CONFIG["fine_tune_batch_size"],
                     )
                 except Exception as e:
                     LOGGER.warning(f"Не удалось загрузить данные ChEMBL для дообучения: {e}")
@@ -313,7 +319,7 @@ def run_generation_pipeline():
             top_k=config.PRETRAINED_HF_CONFIG["top_k"],
             top_p=config.PRETRAINED_HF_CONFIG["top_p"],
             batch_size=config.PRETRAINED_HF_CONFIG["batch_size"],
-            filter_valid=config.PRETRAINED_HF_CONFIG["filter_valid"]
+            filter_valid=config.PRETRAINED_HF_CONFIG["filter_valid"],
         )
 
         # Save raw SMILES for validation pipeline compatibility
@@ -336,7 +342,8 @@ def run_generation_pipeline():
     results = []
     for smiles in generated_smiles:
         mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
-        if not mol: continue
+        if not mol:
+            continue
 
         score = scoring_function(smiles)
 
@@ -361,37 +368,48 @@ def run_generation_pipeline():
             bv = gen.GetFingerprint(mol)
             fp_arr = np.zeros((config.FP_BITS_XGB,), dtype=np.float32)
             DataStructs.ConvertToNumpyArray(bv, fp_arr)  # type: ignore[arg-type]
-            desc_vals = np.asarray([
-                Descriptors.MolWt(mol),  # type: ignore[attr-defined]
-                Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
-                Descriptors.TPSA(mol),  # type: ignore[attr-defined]
-                Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
-                Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
-                Descriptors.RingCount(mol),  # type: ignore[attr-defined]
-            ], dtype=np.float32)
+            desc_vals = np.asarray(
+                [
+                    Descriptors.MolWt(mol),  # type: ignore[attr-defined]
+                    Descriptors.MolLogP(mol),  # type: ignore[attr-defined]
+                    Descriptors.TPSA(mol),  # type: ignore[attr-defined]
+                    Descriptors.NumHDonors(mol),  # type: ignore[attr-defined]
+                    Descriptors.NumHAcceptors(mol),  # type: ignore[attr-defined]
+                    Descriptors.RingCount(mol),  # type: ignore[attr-defined]
+                ],
+                dtype=np.float32,
+            )
             arr = np.concatenate([fp_arr, desc_vals])
 
         pIC50 = float(activity_model.predict(arr.reshape(1, -1))[0])
 
-        results.append({
-            "smiles": smiles,
-            "final_score": score,
-            "predicted_pIC50": pIC50,
-            "qed": QED.qed(mol),
-            "logp": Crippen.MolLogP(mol),
-            "sa_score": calculate_sa_score(smiles),
-            "bbbp_prob": calculate_bbbp(smiles)
-        })
+        results.append(
+            {
+                "smiles": smiles,
+                "final_score": score,
+                "predicted_pIC50": pIC50,
+                "qed": QED.qed(mol),
+                "logp": Crippen.MolLogP(mol),
+                "sa_score": calculate_sa_score(smiles),
+                "bbbp_prob": calculate_bbbp(smiles),
+            }
+        )
 
-    generated_df = pl.DataFrame(results) if results else pl.DataFrame(schema={
-        "smiles": pl.Utf8,
-        "final_score": pl.Float64,
-        "predicted_pIC50": pl.Float64,
-        "qed": pl.Float64,
-        "logp": pl.Float64,
-        "sa_score": pl.Float64,
-        "bbbp_prob": pl.Float64,
-    })
+    generated_df = (
+        pl.DataFrame(results)
+        if results
+        else pl.DataFrame(
+            schema={
+                "smiles": pl.Utf8,
+                "final_score": pl.Float64,
+                "predicted_pIC50": pl.Float64,
+                "qed": pl.Float64,
+                "logp": pl.Float64,
+                "sa_score": pl.Float64,
+                "bbbp_prob": pl.Float64,
+            }
+        )
+    )
 
     generated_df.write_parquet(config.GENERATED_MOLECULES_PATH)
 
@@ -402,6 +420,7 @@ def run_generation_pipeline():
         top5 = generated_df.sort("final_score", descending=True).head(5)
         LOGGER.info(f"Топ-5 молекул по итоговому скору:\n{top5}")
     LOGGER.info("--- Этап 3 завершен ---")
+
 
 if __name__ == "__main__":
     run_generation_pipeline()

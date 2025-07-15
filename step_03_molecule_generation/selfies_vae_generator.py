@@ -9,6 +9,7 @@
 This is still a lightweight reference implementation – for production quality
 consider JT-VAE or GraphNVP.
 """
+
 from __future__ import annotations
 
 import math
@@ -48,6 +49,7 @@ SMILES_OUT_PATH = config.GENERATION_RESULTS_DIR / "generated_smiles_raw.txt"
 GENERATE_N = config.VAE_GENERATE_N
 PATIENCE = config.VAE_PATIENCE
 
+
 # ---------------------------------------------------------------------------
 # Dataset utilities
 # ---------------------------------------------------------------------------
@@ -74,7 +76,7 @@ class Vocab:
             if tok in (self.eos, self.pad):
                 break
             if started:
-            out.append(tok)
+                out.append(tok)
         return out
 
     def __len__(self):
@@ -115,7 +117,7 @@ class SelfiesDataset(Dataset):
             tokens = list(sf.split_selfies(s))
             idx = vocab.encode(tokens)
             if len(idx) > MAX_LEN:
-                idx = idx[: MAX_LEN]
+                idx = idx[:MAX_LEN]
             pad_len = MAX_LEN - len(idx)
             idx = idx + [vocab.stoi[vocab.pad]] * pad_len
             data_list.append(torch.tensor(idx, dtype=torch.long))
@@ -178,8 +180,7 @@ class SelfiesVAE(nn.Module):
         return logits, mu, logvar
 
     def sample(self, vocab: Vocab, num: int = 100) -> list[str]:
-        """Improved sampling with temperature control and better diversity.
-        """
+        """Improved sampling with temperature control and better diversity."""
         self.eval()
         with torch.no_grad():
             # Sample from latent space with some diversity
@@ -241,7 +242,7 @@ class SelfiesVAE(nn.Module):
                 try:
                     smi = sf.decoder(selfies_str)
                     if smi and len(smi) > 3:  # More lenient validation
-                    smiles_out.append(smi)
+                        smiles_out.append(smi)
                         selfies_decoded += 1
                         # Debug successful decode
                         if len(smiles_out) <= 3:
@@ -259,18 +260,13 @@ class SelfiesVAE(nn.Module):
 # Training helper
 # ---------------------------------------------------------------------------
 
+
 def loss_fn(logits, targets, mu, logvar):
-    """Improved VAE loss with better regularization and KL annealing.
-    """
+    """Improved VAE loss with better regularization and KL annealing."""
     batch_size = targets.size(0)
 
     # Reconstruction loss (cross-entropy)
-    recon_loss = F.cross_entropy(
-        logits.view(-1, logits.size(-1)),
-        targets.view(-1),
-        ignore_index=0,
-        reduction="sum"
-    ) / batch_size
+    recon_loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=0, reduction="sum") / batch_size
 
     # KL divergence loss (normalized by batch size and latent dim)
     kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
@@ -324,12 +320,9 @@ def train(model: SelfiesVAE, ds: SelfiesDataset):
 
             # Get individual loss components
             batch_size = src.size(0)
-            recon_loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)),
-                tgt.view(-1),
-                ignore_index=0,
-                reduction="sum"
-            ) / batch_size
+            recon_loss = (
+                F.cross_entropy(logits.view(-1, logits.size(-1)), tgt.view(-1), ignore_index=0, reduction="sum") / batch_size
+            )
 
             # KL divergence with free bits to prevent collapse
             kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
@@ -379,13 +372,16 @@ def train(model: SelfiesVAE, ds: SelfiesDataset):
 
         # Stop if reconstruction loss is too low (overfitting)
         if avg_recon < 0.001 and epoch < 50:
-            LOGGER.warning(f"Reconstruction loss too low at epoch {epoch} (recon={avg_recon:.6f}). Stopping to prevent overfitting.")
-                break
+            LOGGER.warning(
+                f"Reconstruction loss too low at epoch {epoch} (recon={avg_recon:.6f}). Stopping to prevent overfitting."
+            )
+            break
 
 
 # ---------------------------------------------------------------------------
 # Public entry – train (if needed) and sample
 # ---------------------------------------------------------------------------
+
 
 def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
     config.GENERATION_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -420,6 +416,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
 
             # Additional validation with RDKit
             from rdkit import Chem  # type: ignore
+
             validated_smiles = []
             for smi in sampled_raw:
                 if smi:
@@ -442,7 +439,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
                     seen.add(s)
                     out.append(s)
                 if len(out) >= n_samples:
-            break
+                    break
 
             LOGGER.info(f"After deduplication: {len(out)} unique molecules")
 
@@ -473,6 +470,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
         LOGGER.warning("Attempting fallback: direct SELFIES decoding from training data")
         fallback_smiles = []
         import random
+
         random.seed(42)
 
         # Sample random SELFIES from training data and try to decode

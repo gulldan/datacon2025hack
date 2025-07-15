@@ -23,9 +23,11 @@ from utils.logger import LOGGER
 
 logger = LOGGER
 
+
 @dataclass
 class RLHFConfig:
     """Конфигурация для RLHF обучения."""
+
     # PPO параметры
     learning_rate: float = 1e-5
     batch_size: int = 32
@@ -50,6 +52,7 @@ class RLHFConfig:
     qed_weight: float = 0.2
     sa_weight: float = 0.1
 
+
 class RewardModel(nn.Module):
     """Модель для оценки качества молекул."""
 
@@ -62,12 +65,13 @@ class RewardModel(nn.Module):
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(hidden_dim // 2, 1)
+            nn.Linear(hidden_dim // 2, 1),
         )
 
     def forward(self, molecular_features: torch.Tensor) -> torch.Tensor:
         """Предсказываем reward для молекулярных фичей."""
         return self.network(molecular_features)
+
 
 class MolecularFeaturizer:
     """Извлекает молекулярные фичи для reward модели."""
@@ -95,18 +99,20 @@ class MolecularFeaturizer:
             features = []
 
             # 1. Базовые дескрипторы RDKit
-            features.extend([
-                Descriptors.MolWt(mol),
-                Descriptors.MolLogP(mol),
-                Descriptors.NumHDonors(mol),
-                Descriptors.NumHAcceptors(mol),
-                Descriptors.TPSA(mol),
-                Descriptors.NumRotatableBonds(mol),
-                Descriptors.NumAromaticRings(mol),
-                Descriptors.NumSaturatedRings(mol),
-                Descriptors.NumAliphaticRings(mol),
-                QED.qed(mol)
-            ])
+            features.extend(
+                [
+                    Descriptors.MolWt(mol),
+                    Descriptors.MolLogP(mol),
+                    Descriptors.NumHDonors(mol),
+                    Descriptors.NumHAcceptors(mol),
+                    Descriptors.TPSA(mol),
+                    Descriptors.NumRotatableBonds(mol),
+                    Descriptors.NumAromaticRings(mol),
+                    Descriptors.NumSaturatedRings(mol),
+                    Descriptors.NumAliphaticRings(mol),
+                    QED.qed(mol),
+                ]
+            )
 
             # 2. Дескрипторы синтетической доступности
             sa_score = rdMolDescriptors.BertzCT(mol)
@@ -124,6 +130,7 @@ class MolecularFeaturizer:
 
             # 4. Молекулярные фингерпринты (упрощенная версия)
             from rdkit.Chem import rdMolDescriptors
+
             fp = rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
             fp_array = np.array(fp)
 
@@ -143,6 +150,7 @@ class MolecularFeaturizer:
             logger.debug(f"Feature extraction failed for {smiles}: {e}")
             return np.zeros(2048, dtype=np.float32)
 
+
 class PPOTrainer:
     """PPO тренер для RLHF обучения."""
 
@@ -156,14 +164,8 @@ class PPOTrainer:
         self.old_policy_model = copy.deepcopy(policy_model)
 
         # Оптимизаторы
-        self.policy_optimizer = torch.optim.AdamW(
-            policy_model.parameters(),
-            lr=config.learning_rate
-        )
-        self.value_optimizer = torch.optim.AdamW(
-            value_model.parameters(),
-            lr=config.learning_rate
-        )
+        self.policy_optimizer = torch.optim.AdamW(policy_model.parameters(), lr=config.learning_rate)
+        self.value_optimizer = torch.optim.AdamW(value_model.parameters(), lr=config.learning_rate)
 
         # Фичеризатор
         self.featurizer = MolecularFeaturizer()
@@ -240,11 +242,7 @@ class PPOTrainer:
         entropy_loss = -entropy.mean()
 
         # Общий loss
-        total_loss = (
-            policy_loss +
-            self.config.value_coef * value_loss +
-            self.config.entropy_coef * entropy_loss
-        )
+        total_loss = policy_loss + self.config.value_coef * value_loss + self.config.entropy_coef * entropy_loss
 
         return total_loss, policy_loss, value_loss, entropy_loss
 
@@ -313,7 +311,7 @@ class PPOTrainer:
 
             if len(molecules_with_rewards) > 0:
                 avg_reward = np.mean([reward for _, reward in molecules_with_rewards])
-                logger.info(f"Episode {episode+1}, Average reward: {avg_reward:.4f}")
+                logger.info(f"Episode {episode + 1}, Average reward: {avg_reward:.4f}")
 
                 # Обучаем модель
                 self.train_step(molecules_with_rewards)
@@ -324,14 +322,18 @@ class PPOTrainer:
 
                 # Сохраняем checkpoint
                 if (episode + 1) % 20 == 0:
-                    checkpoint_path = f"results/rlhf_model_episode_{episode+1}.pt"
-                    torch.save({
-                        "policy_model_state_dict": self.policy_model.state_dict(),
-                        "value_model_state_dict": self.value_model.state_dict(),
-                        "episode": episode,
-                        "avg_reward": avg_reward
-                    }, checkpoint_path)
+                    checkpoint_path = f"results/rlhf_model_episode_{episode + 1}.pt"
+                    torch.save(
+                        {
+                            "policy_model_state_dict": self.policy_model.state_dict(),
+                            "value_model_state_dict": self.value_model.state_dict(),
+                            "episode": episode,
+                            "avg_reward": avg_reward,
+                        },
+                        checkpoint_path,
+                    )
                     logger.info(f"Saved checkpoint: {checkpoint_path}")
+
 
 def train_reward_model(training_data: list[tuple[str, float]], config: RLHFConfig) -> RewardModel:
     """Обучаем reward модель на данных с человеческими предпочтениями."""
@@ -362,8 +364,8 @@ def train_reward_model(training_data: list[tuple[str, float]], config: RLHFConfi
         num_batches = 0
 
         for i in range(0, len(features), batch_size):
-            batch_features = features[i:i + batch_size]
-            batch_targets = targets[i:i + batch_size]
+            batch_features = features[i : i + batch_size]
+            batch_targets = targets[i : i + batch_size]
 
             optimizer.zero_grad()
             predictions = reward_model(batch_features).squeeze()
@@ -376,7 +378,7 @@ def train_reward_model(training_data: list[tuple[str, float]], config: RLHFConfi
 
         avg_loss = total_loss / num_batches
         if (epoch + 1) % 10 == 0:
-            logger.info(f"Reward model epoch {epoch+1}, Loss: {avg_loss:.4f}")
+            logger.info(f"Reward model epoch {epoch + 1}, Loss: {avg_loss:.4f}")
 
     # Сохраняем модель
     torch.save(reward_model.state_dict(), "results/reward_model.pt")
@@ -384,14 +386,14 @@ def train_reward_model(training_data: list[tuple[str, float]], config: RLHFConfi
 
     return reward_model
 
-def finetune_with_rlhf(pretrained_model_path: str,
-                      training_molecules: list[str],
-                      config: RLHFConfig) -> nn.Module:
+
+def finetune_with_rlhf(pretrained_model_path: str, training_molecules: list[str], config: RLHFConfig) -> nn.Module:
     """Основная функция для RLHF дообучения."""
     logger.info("Starting RLHF fine-tuning process")
 
     # 1. Загружаем предобученную модель
     from .dpo_finetuner import load_pretrained_model
+
     policy_model = load_pretrained_model(pretrained_model_path)
 
     # 2. Создаем value модель (может быть той же архитектуры)
@@ -424,13 +426,10 @@ def finetune_with_rlhf(pretrained_model_path: str,
     logger.info("RLHF fine-tuning completed")
     return policy_model
 
+
 if __name__ == "__main__":
     # Пример использования
-    config = RLHFConfig(
-        learning_rate=1e-5,
-        batch_size=16,
-        num_episodes=100
-    )
+    config = RLHFConfig(learning_rate=1e-5, batch_size=16, num_episodes=100)
 
     # Пример молекул для обучения
     example_molecules = [

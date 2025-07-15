@@ -15,6 +15,7 @@ from tqdm import tqdm
 # Попытка импорта GPUtil с fallback
 try:
     import GPUtil
+
     GPU_AVAILABLE = True
 except ImportError:
     GPU_AVAILABLE = False
@@ -30,14 +31,17 @@ from utils.logger import LOGGER as logger
 if not GPU_AVAILABLE:
     logger.warning("GPUtil не установлен. GPU-мониторинг недоступен.")
 
+
 @dataclass
 class DockingJob:
     """Класс для представления задачи докинга"""
+
     ligand_id: str
     ligand_smiles: str
     ligand_pdbqt_path: str
     output_path: str
     priority: int = 0  # Приоритет задачи (0 - высший)
+
 
 class GPUAcceleratedDocking:
     """Класс для GPU-ускоренного докинга"""
@@ -103,10 +107,7 @@ class GPUAcceleratedDocking:
 
             start_time = time.time()
             result = subprocess.run(
-                cmd,
-                check=False, capture_output=True,
-                text=True,
-                timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
+                cmd, check=False, capture_output=True, text=True, timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
             )
 
             if result.returncode != 0:
@@ -159,27 +160,35 @@ class GPUAcceleratedDocking:
 
             cmd = [
                 "vina",
-                "--receptor", str(PROTEIN_PDBQT_PATH),
-                "--ligand", str(ligand_file),
-                "--out", str(output_file),
-                "--center_x", str(BOX_CENTER[0]),
-                "--center_y", str(BOX_CENTER[1]),
-                "--center_z", str(BOX_CENTER[2]),
-                "--size_x", str(BOX_SIZE[0]),
-                "--size_y", str(BOX_SIZE[1]),
-                "--size_z", str(BOX_SIZE[2]),
-                "--exhaustiveness", str(self.config.get("exhaustiveness", 8)),
-                "--num_modes", str(self.config.get("num_modes", 9)),
-                "--energy_range", str(self.config.get("energy_range", 3.0)),
-                "--cpu", str(self.config.get("num_threads", cpu_count()))
+                "--receptor",
+                str(PROTEIN_PDBQT_PATH),
+                "--ligand",
+                str(ligand_file),
+                "--out",
+                str(output_file),
+                "--center_x",
+                str(BOX_CENTER[0]),
+                "--center_y",
+                str(BOX_CENTER[1]),
+                "--center_z",
+                str(BOX_CENTER[2]),
+                "--size_x",
+                str(BOX_SIZE[0]),
+                "--size_y",
+                str(BOX_SIZE[1]),
+                "--size_z",
+                str(BOX_SIZE[2]),
+                "--exhaustiveness",
+                str(self.config.get("exhaustiveness", 8)),
+                "--num_modes",
+                str(self.config.get("num_modes", 9)),
+                "--energy_range",
+                str(self.config.get("energy_range", 3.0)),
+                "--cpu",
+                str(self.config.get("num_threads", cpu_count())),
             ]
 
-            result = subprocess.run(
-                cmd,
-                check=False, capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)
 
             if result.returncode == 0:
                 return self._parse_vina_output(result.stdout)
@@ -232,12 +241,12 @@ class GPUAcceleratedDocking:
         all_scores = {}
 
         for i in range(0, len(molecules), self.batch_size):
-            batch = molecules[i:i + self.batch_size]
-            logger.info(f"Обрабатываем батч {i//self.batch_size + 1}: {len(batch)} молекул")
+            batch = molecules[i : i + self.batch_size]
+            logger.info(f"Обрабатываем батч {i // self.batch_size + 1}: {len(batch)} молекул")
 
             # Создаем временные директории для батча
-            batch_ligand_dir = self.temp_dir / f"batch_{i//self.batch_size}_ligands"
-            batch_output_dir = self.temp_dir / f"batch_{i//self.batch_size}_outputs"
+            batch_ligand_dir = self.temp_dir / f"batch_{i // self.batch_size}_ligands"
+            batch_output_dir = self.temp_dir / f"batch_{i // self.batch_size}_outputs"
             batch_ligand_dir.mkdir(exist_ok=True)
             batch_output_dir.mkdir(exist_ok=True)
 
@@ -247,8 +256,7 @@ class GPUAcceleratedDocking:
                 ligand_file = batch_ligand_dir / f"{mol['id']}.pdbqt"
                 try:
                     # Здесь должна быть функция конвертации SMILES в PDBQT
-                    # Заглушка для подготовки лиганда
-                    success = self._prepare_ligand_simple(mol, ligand_file)
+                    success = self._prepare_ligand(mol, ligand_file)
                     if success:
                         ligand_files.append(ligand_file)
                 except Exception as e:
@@ -277,18 +285,64 @@ class GPUAcceleratedDocking:
         if hasattr(self, "temp_dir") and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    def _prepare_ligand_simple(self, mol: dict, output_file: Path) -> bool:
-        """Простая заглушка для подготовки лиганда"""
-        try:
-            # Создаем простой PDBQT файл (заглушка)
-            with open(output_file, "w") as f:
-                f.write("REMARK Generated ligand\n")
-                f.write("ATOM      1  C   LIG A   1       0.000   0.000   0.000  1.00 20.00     0.000 C\n")
-                f.write("ENDMDL\n")
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка создания лиганда: {e}")
+    def _prepare_ligand(self, mol_data: dict, output_pdbqt_path: Path) -> bool:
+        """ОТЛАДОЧНАЯ ВЕРСИЯ функции подготовки лиганда."""
+        smiles = mol_data.get("smiles")
+        mol_id = mol_data.get("id", "unknown_mol")
+        logger.info(f"--- [{mol_id}] НАЧАЛО ПОДГОТОВКИ для SMILES: {smiles} ---")
+
+        if not smiles:
+            logger.error(f"[{mol_id}] СБОЙ: отсутствует SMILES.")
             return False
+
+        # --- Этап 1: RDKit ---
+        mol = Chem.MolFromSmiles(smiles)
+        if not mol:
+            logger.error(f"[{mol_id}] СБОЙ: RDKit не смог прочитать SMILES.")
+            return False
+        logger.info(f"[{mol_id}] RDKit: SMILES успешно прочитан.")
+
+        mol = Chem.AddHs(mol)
+        params = AllChem.ETKDGv3()
+        params.randomSeed = 0xF00D
+        if AllChem.EmbedMolecule(mol, params) == -1:
+            logger.error(f"[{mol_id}] СБОЙ: RDKit не смог сгенерировать 3D-конформер.")
+            return False
+        logger.info(f"[{mol_id}] RDKit: 3D-конформер успешно сгенерирован.")
+
+        try:
+            AllChem.UFFOptimizeMolecule(mol)
+            logger.info(f"[{mol_id}] RDKit: 3D-структура успешно оптимизирована.")
+        except Exception as e:
+            logger.error(f"[{mol_id}] СБОЙ: Ошибка оптимизации 3D: {e}")
+            return False
+
+        temp_pdb_path = output_pdbqt_path.with_suffix(".tmp.pdb")
+        Chem.MolToPDBFile(mol, str(temp_pdb_path))
+        logger.info(f"[{mol_id}] RDKit: Временный PDB файл сохранен в {temp_pdb_path}.")
+
+        # --- Этап 2: OpenBabel ---
+        cmd = ["obabel", str(temp_pdb_path), "-O", str(output_pdbqt_path), "--partialcharge", "gasteiger"]
+        logger.info(f"[{mol_id}] OpenBabel: Запуск команды: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+            logger.info(f"[{mol_id}] OpenBabel: Команда успешно выполнена.")
+        except Exception as e:
+            error_msg = e.stderr.strip() if hasattr(e, "stderr") else str(e)
+            logger.error(f"[{mol_id}] СБОЙ: OpenBabel не смог конвертировать. Ошибка: {error_msg}")
+            temp_pdb_path.unlink(missing_ok=True)
+            return False
+        finally:
+            temp_pdb_path.unlink(missing_ok=True)
+
+        # --- Этап 3: Валидация ---
+        if not output_pdbqt_path.exists() or output_pdbqt_path.stat().st_size == 0:
+            logger.error(f"[{mol_id}] СБОЙ: OpenBabel создал пустой PDBQT файл.")
+            return False
+
+        logger.info(f"--- [{mol_id}] УСПЕХ: PDBQT файл готов: {output_pdbqt_path} ---")
+        return True
+
 
 class HierarchicalDocking:
     """Иерархический докинг: быстрый скрининг + точный докинг"""
@@ -336,6 +390,7 @@ class HierarchicalDocking:
 
         return fast_scores
 
+
 def optimize_docking_performance():
     """Оптимизирует производительность системы для докинга"""
     logger.info("Оптимизируем производительность системы")
@@ -375,6 +430,7 @@ def optimize_docking_performance():
 
     return optimal_config
 
+
 def run_hit_selection_pipeline():
     """Основная функция для запуска пайплайна отбора хитов"""
     logger.info("🎯 Запуск пайплайна отбора хитов (Hit Selection)")
@@ -385,6 +441,7 @@ def run_hit_selection_pipeline():
         from pathlib import Path
 
         import polars as pl
+
         sys.path.append(str(Path(__file__).parent.parent))
         from config import GENERATED_MOLECULES_PATH, HIT_SELECTION_RESULTS_DIR
 
@@ -407,13 +464,14 @@ def run_hit_selection_pipeline():
         # Инициализируем ускоренный докинг
         logger.info("🚀 Инициализация ускоренного докинга")
         from step_04_hit_selection.accelerated_docking import AcceleratedDocking
+
         docking_engine = AcceleratedDocking(optimal_config)
 
         # Запускаем докинг
         logger.info("🎯 Запуск молекулярного докинга")
 
         # Ограничиваем количество молекул для демонстрации
-        demo_molecules = molecules[:100] if len(molecules) > 100 else molecules
+        demo_molecules = molecules
         logger.info(f"Обрабатываем {len(demo_molecules)} молекул для демонстрации")
 
         # Добавляем необходимые поля если их нет
@@ -437,12 +495,14 @@ def run_hit_selection_pipeline():
             results_data = []
             for mol_id, score in scores.items():
                 mol_data = next((m for m in demo_molecules if m.get("id") == mol_id), {})
-                results_data.append({
-                    "molecule_id": mol_id,
-                    "smiles": mol_data.get("smiles", ""),
-                    "docking_score": score,
-                    "rank": 0  # Будет заполнено после сортировки
-                })
+                results_data.append(
+                    {
+                        "molecule_id": mol_id,
+                        "smiles": mol_data.get("smiles", ""),
+                        "docking_score": score,
+                        "rank": 0,  # Будет заполнено после сортировки
+                    }
+                )
 
             # Сортируем по скору докинга (лучшие = более отрицательные)
             results_data.sort(key=lambda x: x["docking_score"])
@@ -458,7 +518,7 @@ def run_hit_selection_pipeline():
             # Выводим топ результаты
             logger.info("🏆 Топ-10 результатов:")
             for i, result in enumerate(results_data[:10]):
-                logger.info(f"  {i+1}. {result['molecule_id']}: {result['docking_score']:.3f}")
+                logger.info(f"  {i + 1}. {result['molecule_id']}: {result['docking_score']:.3f}")
 
         else:
             logger.warning("⚠️ Докинг не дал результатов")

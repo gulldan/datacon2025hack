@@ -40,8 +40,7 @@ def test_gpu_availability():
 
         # Тест AutoDock-GPU
         try:
-            result = subprocess.run([autodock_gpu_path, "--help"],
-                                  check=False, capture_output=True, text=True, timeout=5)
+            result = subprocess.run([autodock_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 logger.info("✓ AutoDock-GPU работает")
             else:
@@ -92,11 +91,7 @@ def test_simple_docking():
         return None
 
     # Тестовые молекулы
-    test_molecules = [
-        {"id": "ethanol", "smiles": "CCO"},
-        {"id": "methanol", "smiles": "CO"},
-        {"id": "water", "smiles": "O"}
-    ]
+    test_molecules = [{"id": "ethanol", "smiles": "CCO"}, {"id": "methanol", "smiles": "CO"}, {"id": "water", "smiles": "O"}]
 
     logger.info(f"Тестируем {len(test_molecules)} молекул")
 
@@ -136,9 +131,7 @@ def test_gpu_performance():
     cpu_config["use_gpu"] = False
 
     # Тестовые молекулы
-    test_molecules = [
-        {"id": f"test_mol_{i}", "smiles": "CCO"} for i in range(1000)
-    ]
+    test_molecules = [{"id": f"test_mol_{i}", "smiles": "CCO"} for i in range(1000)]
 
     gpu_time = None
     cpu_time = None

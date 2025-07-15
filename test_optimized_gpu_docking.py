@@ -19,6 +19,7 @@ from utils.logger import setup_logger
 
 logger = setup_logger()
 
+
 class OptimizedGPUDockingTest:
     """Тест оптимизированного GPU докинга с мониторингом производительности"""
 
@@ -47,11 +48,13 @@ class OptimizedGPUDockingTest:
             # Создаем синтетические тестовые молекулы
             test_molecules = []
             for i in range(count):
-                test_molecules.append({
-                    "smiles": f"C1=CC=C(C=C1)C(=O)N{i}",  # Простая структура
-                    "score": 0.5,
-                    "molecule_id": f"test_mol_{i}"
-                })
+                test_molecules.append(
+                    {
+                        "smiles": f"C1=CC=C(C=C1)C(=O)N{i}",  # Простая структура
+                        "score": 0.5,
+                        "molecule_id": f"test_mol_{i}",
+                    }
+                )
 
             logger.info(f"Создано {len(test_molecules)} синтетических молекул")
             return test_molecules
@@ -103,7 +106,7 @@ class OptimizedGPUDockingTest:
                     "gpu_utilization_max": performance_stats.get("gpu_utilization", {}).get("max", 0),
                     "cpu_utilization_avg": performance_stats.get("cpu_utilization", {}).get("avg", 0),
                     "best_score": min(scores.values()) if scores else None,
-                    "scores_count": len(scores)
+                    "scores_count": len(scores),
                 }
 
                 results.append(batch_results)
@@ -113,7 +116,9 @@ class OptimizedGPUDockingTest:
                 logger.info(f"   Время: {total_time:.2f}s")
                 logger.info(f"   Производительность: {throughput:.2f} молекул/сек")
                 logger.info(f"   Успешных докингов: {successful_dockings}/{len(test_molecules)}")
-                logger.info(f"   GPU утилизация: {batch_results['gpu_utilization_avg']:.1f}% (avg), {batch_results['gpu_utilization_max']:.1f}% (max)")
+                logger.info(
+                    f"   GPU утилизация: {batch_results['gpu_utilization_avg']:.1f}% (avg), {batch_results['gpu_utilization_max']:.1f}% (max)"
+                )
                 logger.info(f"   CPU утилизация: {batch_results['cpu_utilization_avg']:.1f}% (avg)")
 
                 if batch_results["best_score"]:
@@ -123,13 +128,9 @@ class OptimizedGPUDockingTest:
                 logger.error(f"❌ Ошибка в тестировании батча {batch_size}: {e}")
                 self.monitor.stop_monitoring()
 
-                results.append({
-                    "batch_size": batch_size,
-                    "error": str(e),
-                    "total_time": 0,
-                    "throughput": 0,
-                    "gpu_utilization_avg": 0
-                })
+                results.append(
+                    {"batch_size": batch_size, "error": str(e), "total_time": 0, "throughput": 0, "gpu_utilization_avg": 0}
+                )
 
             # Пауза между тестами
             time.sleep(5)
@@ -182,13 +183,15 @@ class OptimizedGPUDockingTest:
             actual_duration = time.time() - start_time
 
             logger.info("\n📊 Результаты стресс-теста:")
-            logger.info(f"   Длительность: {actual_duration/60:.1f} минут")
+            logger.info(f"   Длительность: {actual_duration / 60:.1f} минут")
             logger.info(f"   Обработано молекул: {total_processed}")
             logger.info(f"   Успешных докингов: {total_successful}")
-            logger.info(f"   Средняя производительность: {total_processed/actual_duration:.2f} молекул/сек")
+            logger.info(f"   Средняя производительность: {total_processed / actual_duration:.2f} молекул/сек")
 
             if "error" not in performance_stats:
-                logger.info(f"   GPU утилизация: {performance_stats['gpu_utilization']['avg']:.1f}% (avg), {performance_stats['gpu_utilization']['max']:.1f}% (max)")
+                logger.info(
+                    f"   GPU утилизация: {performance_stats['gpu_utilization']['avg']:.1f}% (avg), {performance_stats['gpu_utilization']['max']:.1f}% (max)"
+                )
                 logger.info(f"   CPU утилизация: {performance_stats['cpu_utilization']['avg']:.1f}% (avg)")
 
     def analyze_optimization_effectiveness(self, results: list[dict]):
@@ -211,9 +214,11 @@ class OptimizedGPUDockingTest:
         logger.info("\n📊 Тренды производительности:")
         for result in results:
             if "error" not in result:
-                logger.info(f"   Батч {result['batch_size']:4d}: "
-                          f"GPU {result['gpu_utilization_avg']:5.1f}%, "
-                          f"throughput {result['throughput']:6.2f} mol/s")
+                logger.info(
+                    f"   Батч {result['batch_size']:4d}: "
+                    f"GPU {result['gpu_utilization_avg']:5.1f}%, "
+                    f"throughput {result['throughput']:6.2f} mol/s"
+                )
 
         # Рекомендации
         logger.info("\n💡 Рекомендации:")
@@ -229,6 +234,7 @@ class OptimizedGPUDockingTest:
             logger.info("   🚀 Высокая производительность - оптимизация успешна")
         else:
             logger.info("   ⚠️  Производительность можно улучшить")
+
 
 def main():
     """Основная функция тестирования"""
@@ -255,6 +261,7 @@ def main():
         logger.error(f"❌ Критическая ошибка: {e}")
     finally:
         print("\n✅ Тестирование завершено")
+
 
 if __name__ == "__main__":
     main()

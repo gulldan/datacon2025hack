@@ -14,6 +14,7 @@ Filtered set is written to ``config.GENERATED_MOLECULES_PATH`` (overwriting
 previous placeholder).  This file will be consumed later by docking / hit
 selection scripts.
 """
+
 from __future__ import annotations
 
 # pylint: disable=wrong-import-position
@@ -100,6 +101,7 @@ def sa_score(smiles: str) -> float:
 # Descriptor computation
 # -----------------------------------------------------------------------------
 
+
 def descriptors(smiles: str):
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if mol is None:
@@ -116,6 +118,7 @@ def descriptors(smiles: str):
         "rotb": rdMolDescriptors.CalcNumRotatableBonds(mol),
         "ring_count": ring_count,
     }
+
 
 # -----------------------------------------------------------------------------
 # Simple ADMET prediction helpers
@@ -158,6 +161,7 @@ def bbb_permeability_prob(desc: dict) -> float:
     # fmt: on
     return float(_logistic(score))
 
+
 # -----------------------------------------------------------------------------
 # Simple CYP450 inhibition & hepatotoxicity placeholders
 # -----------------------------------------------------------------------------
@@ -181,9 +185,11 @@ def hepatotoxicity_prob(desc: dict) -> float:
     score = b0 + 0.8 * desc["logp"] + 0.01 * desc["molwt"] + 0.05 * desc["hba"] + 0.5 * desc["ring_count"]
     return float(_logistic(score))
 
+
 # -----------------------------------------------------------------------------
 # Main pipeline
 # -----------------------------------------------------------------------------
+
 
 def main() -> None:
     VALIDATED_PATH = config.GENERATION_RESULTS_DIR / "generated_molecules.parquet"
@@ -277,37 +283,15 @@ def main() -> None:
         return
 
     # Activity prediction (T8)
-    LOGGER.info("Predicting activity with XGBoost model…")
+    LOGGER.info("Predicting activity with linear model…")
     model = load_model()
     preds = []
     for smi in filtered["smiles"]:
-        mol = Chem.MolFromSmiles(smi)  # type: ignore[attr-defined]
-        if mol is None:
-            preds.append(np.nan)
-            continue
-
-        # Create XGBoost-compatible fingerprint (1024 bits + 6 descriptors)
-        fp_bits = config.FP_BITS_XGB
-        fp = smiles_to_fp(smi, n_bits=fp_bits)
+        fp = smiles_to_fp(smi)
         if fp is None:
             preds.append(np.nan)
             continue
-
-        # Add RDKit descriptors for XGBoost model
-        RD_FUNCS = [
-            Descriptors.MolWt,  # type: ignore[attr-defined]
-            Descriptors.MolLogP,  # type: ignore[attr-defined]
-            Descriptors.TPSA,  # type: ignore[attr-defined]
-            Descriptors.NumHDonors,  # type: ignore[attr-defined]
-            Descriptors.NumHAcceptors,  # type: ignore[attr-defined]
-            Descriptors.RingCount,  # type: ignore[attr-defined]
-        ]
-        desc_vals = np.asarray([f(mol) for f in RD_FUNCS], dtype=np.float32)
-
-        # Combine fingerprint and descriptors
-        combined_features = np.concatenate([fp, desc_vals])
-
-        preds.append(float(model.predict(combined_features)[0]))
+        preds.append(float(model.predict(fp)[0]))
     filtered = filtered.with_columns(pl.Series("predicted_pIC50", preds))
 
     # Apply activity filter using DYRK1A specific thresholds
@@ -325,4 +309,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     import sys
+
     main()

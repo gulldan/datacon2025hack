@@ -4,6 +4,7 @@ Requires prepared receptor PDBQT and ligand PDBQT files (see `protein_prep.py`, 
 Writes scores to `config.VINA_RESULTS_PATH`.
 Supports GPU acceleration via AutoDock-GPU and Vina-GPU.
 """
+
 from __future__ import annotations
 
 import re
@@ -78,24 +79,41 @@ def dock_with_autodock_gpu(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path, doc
         # Run AutoDock-GPU with modern parameters
         cmd = [
             str(autodock_gpu_bin),
-            "--lfile", str(lig_pdbqt),
-            "--ffile", str(fld_path),
-            "--resnam", lig_pdbqt.stem,
-            "--devnum", str(docking_params.get("gpu_device", 0) + 1),  # AutoDock-GPU uses 1-based indexing
-            "--nrun", str(docking_params.get("autodock_gpu_nrun", 20)),
-            "--nev", str(docking_params.get("autodock_gpu_nev", 2500000)),
-            "--ngen", str(docking_params.get("autodock_gpu_ngen", 42000)),
-            "--psize", str(docking_params.get("autodock_gpu_psize", 150)),
-            "--heuristics", str(docking_params.get("autodock_gpu_heuristics", 1)),
-            "--autostop", str(docking_params.get("autodock_gpu_autostop", 1)),
-            "--xmloutput", str(docking_params.get("autodock_gpu_xml_output", 1)),
-            "--dlgoutput", str(docking_params.get("autodock_gpu_dlg_output", 1))
+            "--lfile",
+            str(lig_pdbqt),
+            "--ffile",
+            str(fld_path),
+            "--resnam",
+            lig_pdbqt.stem,
+            "--devnum",
+            str(docking_params.get("gpu_device", 0) + 1),  # AutoDock-GPU uses 1-based indexing
+            "--nrun",
+            str(docking_params.get("autodock_gpu_nrun", 20)),
+            "--nev",
+            str(docking_params.get("autodock_gpu_nev", 2500000)),
+            "--ngen",
+            str(docking_params.get("autodock_gpu_ngen", 42000)),
+            "--psize",
+            str(docking_params.get("autodock_gpu_psize", 150)),
+            "--heuristics",
+            str(docking_params.get("autodock_gpu_heuristics", 1)),
+            "--autostop",
+            str(docking_params.get("autodock_gpu_autostop", 1)),
+            "--xmloutput",
+            str(docking_params.get("autodock_gpu_xml_output", 1)),
+            "--dlgoutput",
+            str(docking_params.get("autodock_gpu_dlg_output", 1)),
         ]
 
         try:
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True,
-                                    timeout=docking_params.get("timeout_per_ligand", 60),
-                                    cwd=temp_path)
+            result = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=docking_params.get("timeout_per_ligand", 60),
+                cwd=temp_path,
+            )
 
             if result.returncode == 0:
                 # Parse the output for binding energy from DLG file
@@ -123,7 +141,9 @@ def dock_with_vina_optimized(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path, d
     optimized_params["num_modes"] = 50  # Больше режимов для лучшего поиска
     optimized_params["energy_range"] = 5.0  # Широкий диапазон энергий
 
-    logger.debug(f"Optimized GPU-like docking for {lig_pdbqt.name}: threads={optimized_params['num_threads']}, exhaustiveness={optimized_params['exhaustiveness']}")
+    logger.debug(
+        f"Optimized GPU-like docking for {lig_pdbqt.name}: threads={optimized_params['num_threads']}, exhaustiveness={optimized_params['exhaustiveness']}"
+    )
 
     # Используем стандартную CPU функцию с оптимизированными параметрами
     return dock_ligand_cpu(lig_pdbqt, out_pdbqt, log_path, optimized_params)
@@ -135,25 +155,42 @@ def dock_with_vina_gpu(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path, docking
 
     cmd = [
         str(vina_gpu_bin),
-        "--receptor", str(config.PROTEIN_PDBQT_PATH),
-        "--ligand", str(lig_pdbqt),
-        "--center_x", str(config.BOX_CENTER[0]),
-        "--center_y", str(config.BOX_CENTER[1]),
-        "--center_z", str(config.BOX_CENTER[2]),
-        "--size_x", str(config.BOX_SIZE[0]),
-        "--size_y", str(config.BOX_SIZE[1]),
-        "--size_z", str(config.BOX_SIZE[2]),
-        "--exhaustiveness", str(docking_params["exhaustiveness"]),
-        "--num_modes", str(docking_params["num_modes"]),
-        "--energy_range", str(docking_params["energy_range"]),
-        "--out", str(out_pdbqt),
-        "--opencl_binary_path", str(Path(vina_gpu_bin).parent),
-        "--thread", str(docking_params["num_threads"]),
-        "--opencl_device_id", str(docking_params.get("gpu_device", 0))
+        "--receptor",
+        str(config.PROTEIN_PDBQT_PATH),
+        "--ligand",
+        str(lig_pdbqt),
+        "--center_x",
+        str(config.BOX_CENTER[0]),
+        "--center_y",
+        str(config.BOX_CENTER[1]),
+        "--center_z",
+        str(config.BOX_CENTER[2]),
+        "--size_x",
+        str(config.BOX_SIZE[0]),
+        "--size_y",
+        str(config.BOX_SIZE[1]),
+        "--size_z",
+        str(config.BOX_SIZE[2]),
+        "--exhaustiveness",
+        str(docking_params["exhaustiveness"]),
+        "--num_modes",
+        str(docking_params["num_modes"]),
+        "--energy_range",
+        str(docking_params["energy_range"]),
+        "--out",
+        str(out_pdbqt),
+        "--opencl_binary_path",
+        str(Path(vina_gpu_bin).parent),
+        "--thread",
+        str(docking_params["num_threads"]),
+        "--opencl_device_id",
+        str(docking_params.get("gpu_device", 0)),
     ]
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=docking_params.get("timeout_per_ligand", 60))
+        result = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=docking_params.get("timeout_per_ligand", 60)
+        )
 
         if result.returncode == 0:
             # Parse the output for binding energy
@@ -211,7 +248,7 @@ rmstol 2.0
 extnrg 1000.0
 e0max 0.0 10000
 ga_pop_size 150
-ga_num_evals {docking_params.get('exhaustiveness', 8) * 2500}
+ga_num_evals {docking_params.get("exhaustiveness", 8) * 2500}
 ga_num_generations 27000
 ga_elitism 1
 ga_mutation_rate 0.02
@@ -228,7 +265,7 @@ sw_lb_rho 0.01
 ls_search_freq 0.06
 set_psw1
 unbound_model bound
-ga_run {docking_params.get('num_modes', 20)}
+ga_run {docking_params.get("num_modes", 20)}
 analysis
 """
     dpf_path.write_text(dpf_content)
@@ -472,8 +509,8 @@ def dock_ligands_batch(lig_files: list[Path], batch_size: int = 1000) -> list[tu
     all_results = []
 
     for i in range(0, len(lig_files), batch_size):
-        batch = lig_files[i:i + batch_size]
-        logger.info(f"Обработка батча {i//batch_size + 1}: {len(batch)} лигандов")
+        batch = lig_files[i : i + batch_size]
+        logger.info(f"Обработка батча {i // batch_size + 1}: {len(batch)} лигандов")
 
         batch_results = dock_ligands_parallel(batch)
         all_results.extend(batch_results)
@@ -481,7 +518,7 @@ def dock_ligands_batch(lig_files: list[Path], batch_size: int = 1000) -> list[tu
         # Сохраняем промежуточные результаты
         if batch_results:
             df_batch = pl.DataFrame(batch_results, schema=["ligand_id", "docking_score"])
-            batch_path = config.VINA_RESULTS_PATH.with_name(f"vina_batch_{i//batch_size + 1}.parquet")
+            batch_path = config.VINA_RESULTS_PATH.with_name(f"vina_batch_{i // batch_size + 1}.parquet")
             df_batch.write_parquet(batch_path)
             logger.info(f"Промежуточные результаты сохранены: {batch_path}")
 
@@ -505,14 +542,18 @@ def optimize_vina_parameters() -> dict:
             params["exhaustiveness"] = 64
             params["num_modes"] = 50
             params["energy_range"] = 5.0
-            logger.info(f"GPU-оптимизированные параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}")
+            logger.info(
+                f"GPU-оптимизированные параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}"
+            )
         else:
             # Стандартные GPU параметры
             params["num_threads"] = cpu_cores // 2
             params["exhaustiveness"] = 32
             params["num_modes"] = 20
             params["energy_range"] = 4.0
-            logger.info(f"GPU параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}")
+            logger.info(
+                f"GPU параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}"
+            )
     else:
         # Стандартные CPU параметры
         if cpu_cores >= 16:
@@ -527,7 +568,9 @@ def optimize_vina_parameters() -> dict:
 
         params["num_modes"] = 20
         params["energy_range"] = 4.0
-        logger.info(f"CPU параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}")
+        logger.info(
+            f"CPU параметры Vina: threads={params['num_threads']}, exhaustiveness={params['exhaustiveness']}, modes={params['num_modes']}"
+        )
 
     return params
 
@@ -590,7 +633,7 @@ def main() -> None:
 
     logger.info(f"Docking completed. Scores saved to {config.VINA_RESULTS_PATH}")
     logger.info(f"Результаты: {len(results)} лигандов, среднее: {avg_score:.2f}, мин: {min_score:.2f}, макс: {max_score:.2f}")
-    logger.info(f"Скорость: {len(results)/elapsed_time:.2f} лигандов/сек")
+    logger.info(f"Скорость: {len(results) / elapsed_time:.2f} лигандов/сек")
 
 
 if __name__ == "__main__":

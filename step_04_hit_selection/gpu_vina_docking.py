@@ -23,16 +23,20 @@ from utils.logger import setup_logger
 @dataclass
 class GPUDockingConfig:
     """Configuration for GPU docking"""
+
     use_gpu: bool = True
     gpu_device: int = 0
     autodock_gpu_path: str = "/home/qwerty/github/datacon2025hack/gpu_docking_tools/AutoDock-GPU-develop/bin/autodock_gpu_128wi"
-    vina_gpu_path: str = "/home/qwerty/github/datacon2025hack/gpu_docking_tools/Vina-GPU-2.1-main/AutoDock-Vina-GPU-2.1/AutoDock-Vina-GPU-2-1"
+    vina_gpu_path: str = (
+        "/home/qwerty/github/datacon2025hack/gpu_docking_tools/Vina-GPU-2.1-main/AutoDock-Vina-GPU-2.1/AutoDock-Vina-GPU-2-1"
+    )
     batch_size: int = 100
     max_concurrent_jobs: int = 4
     nrun: int = 10
     exhaustiveness: int = 32
     num_modes: int = 20
     energy_range: float = 4.0
+
 
 class GPUDockingEngine:
     """GPU-accelerated molecular docking engine"""
@@ -59,8 +63,9 @@ class GPUDockingEngine:
                 return
 
             # Test AutoDock-GPU
-            result = subprocess.run([self.config.autodock_gpu_path, "--help"],
-                                  check=False, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                [self.config.autodock_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=10
+            )
             if result.returncode != 0:
                 self.logger.warning("AutoDock-GPU not working properly")
                 self.config.use_gpu = False
@@ -84,19 +89,16 @@ class GPUDockingEngine:
                 subprocess.run(["cp", ligand_path, pdbqt_path], check=True)
         else:
             # Convert to PDBQT using obabel
-            cmd = [
-                "obabel", ligand_path, "-O", pdbqt_path,
-                "--gen3d", "--minimize", "--ff", "UFF"
-            ]
+            cmd = ["obabel", ligand_path, "-O", pdbqt_path, "--gen3d", "--minimize", "--ff", "UFF"]
             result = subprocess.run(cmd, check=False, capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to convert ligand: {result.stderr}")
 
         return pdbqt_path
 
-    def prepare_receptor_maps(self, receptor_path: str, output_dir: str,
-                            center: tuple[float, float, float],
-                            size: tuple[float, float, float]) -> str:
+    def prepare_receptor_maps(
+        self, receptor_path: str, output_dir: str, center: tuple[float, float, float], size: tuple[float, float, float]
+    ) -> str:
         """Prepare receptor maps for AutoDock-GPU"""
         receptor_name = Path(receptor_path).stem
         maps_dir = os.path.join(output_dir, f"{receptor_name}_maps")
@@ -107,7 +109,7 @@ class GPUDockingEngine:
         fld_path = os.path.join(maps_dir, f"{receptor_name}.maps.fld")
 
         # Generate grid parameter file
-        gpf_content = f"""npts {int(size[0]/0.375)} {int(size[1]/0.375)} {int(size[2]/0.375)}
+        gpf_content = f"""npts {int(size[0] / 0.375)} {int(size[1] / 0.375)} {int(size[2] / 0.375)}
 gridfld {receptor_name}.maps.fld
 spacing 0.375
 receptor_types A C HD N OA SA
@@ -137,21 +139,27 @@ dielectric -0.1465
 
         return fld_path
 
-    def dock_ligand_autodock_gpu(self, ligand_path: str, fld_path: str,
-                               output_dir: str) -> dict:
+    def dock_ligand_autodock_gpu(self, ligand_path: str, fld_path: str, output_dir: str) -> dict:
         """Dock single ligand using AutoDock-GPU"""
         ligand_name = Path(ligand_path).stem
         output_path = os.path.join(output_dir, f"{ligand_name}_gpu.dlg")
 
         cmd = [
             self.config.autodock_gpu_path,
-            "--lfile", ligand_path,
-            "--ffile", fld_path,
-            "--resnam", ligand_name,
-            "--nrun", str(self.config.nrun),
-            "--devnum", str(self.config.gpu_device + 1),  # AutoDock-GPU uses 1-based indexing
-            "--dlgoutput", "1",
-            "--xmloutput", "0"
+            "--lfile",
+            ligand_path,
+            "--ffile",
+            fld_path,
+            "--resnam",
+            ligand_name,
+            "--nrun",
+            str(self.config.nrun),
+            "--devnum",
+            str(self.config.gpu_device + 1),  # AutoDock-GPU uses 1-based indexing
+            "--dlgoutput",
+            "1",
+            "--xmloutput",
+            "0",
         ]
 
         start_time = time.time()
@@ -166,7 +174,7 @@ dielectric -0.1465
                 "rmsd": 0.0,
                 "success": False,
                 "time": end_time - start_time,
-                "error": result.stderr
+                "error": result.stderr,
             }
 
         # Parse results
@@ -178,7 +186,7 @@ dielectric -0.1465
             "rmsd": rmsd,
             "success": True,
             "time": end_time - start_time,
-            "error": None
+            "error": None,
         }
 
     def parse_autodock_gpu_results(self, dlg_path: str) -> tuple[float, float]:
@@ -212,10 +220,14 @@ dielectric -0.1465
             self.logger.error(f"Failed to parse {dlg_path}: {e}")
             return 0.0, 0.0
 
-    def dock_ligand_vina_gpu(self, ligand_path: str, receptor_path: str,
-                           center: tuple[float, float, float],
-                           size: tuple[float, float, float],
-                           output_dir: str) -> dict:
+    def dock_ligand_vina_gpu(
+        self,
+        ligand_path: str,
+        receptor_path: str,
+        center: tuple[float, float, float],
+        size: tuple[float, float, float],
+        output_dir: str,
+    ) -> dict:
         """Dock single ligand using Vina-GPU"""
         ligand_name = Path(ligand_path).stem
         output_path = os.path.join(output_dir, f"{ligand_name}_vina_gpu.pdbqt")
@@ -256,7 +268,7 @@ energy_range = {self.config.energy_range}
                 "rmsd": 0.0,
                 "success": False,
                 "time": end_time - start_time,
-                "error": result.stderr
+                "error": result.stderr,
             }
 
         # Parse results
@@ -268,7 +280,7 @@ energy_range = {self.config.energy_range}
             "rmsd": rmsd,
             "success": True,
             "time": end_time - start_time,
-            "error": None
+            "error": None,
         }
 
     def parse_vina_gpu_results(self, pdbqt_path: str) -> tuple[float, float]:
@@ -293,10 +305,15 @@ energy_range = {self.config.energy_range}
             self.logger.error(f"Failed to parse {pdbqt_path}: {e}")
             return 0.0, 0.0
 
-    def run_gpu_docking_batch(self, ligand_files: list[str], receptor_path: str,
-                            center: tuple[float, float, float],
-                            size: tuple[float, float, float],
-                            output_dir: str, engine: str = "autodock_gpu") -> list[dict]:
+    def run_gpu_docking_batch(
+        self,
+        ligand_files: list[str],
+        receptor_path: str,
+        center: tuple[float, float, float],
+        size: tuple[float, float, float],
+        output_dir: str,
+        engine: str = "autodock_gpu",
+    ) -> list[dict]:
         """Run GPU docking on a batch of ligands"""
         os.makedirs(output_dir, exist_ok=True)
         results = []
@@ -315,25 +332,25 @@ energy_range = {self.config.energy_range}
                     prepared_ligands.append(pdbqt_path)
                 except Exception as e:
                     self.logger.error(f"Failed to prepare ligand {ligand_file}: {e}")
-                    results.append({
-                        "ligand": Path(ligand_file).stem,
-                        "binding_affinity": 0.0,
-                        "rmsd": 0.0,
-                        "success": False,
-                        "time": 0.0,
-                        "error": str(e)
-                    })
+                    results.append(
+                        {
+                            "ligand": Path(ligand_file).stem,
+                            "binding_affinity": 0.0,
+                            "rmsd": 0.0,
+                            "success": False,
+                            "time": 0.0,
+                            "error": str(e),
+                        }
+                    )
 
             # Dock ligands using GPU
-            dock_func = partial(self.dock_ligand_autodock_gpu,
-                              fld_path=fld_path, output_dir=output_dir)
+            dock_func = partial(self.dock_ligand_autodock_gpu, fld_path=fld_path, output_dir=output_dir)
 
         elif engine == "vina_gpu":
             # Prepare docking function
-            dock_func = partial(self.dock_ligand_vina_gpu,
-                              receptor_path=receptor_path,
-                              center=center, size=size,
-                              output_dir=output_dir)
+            dock_func = partial(
+                self.dock_ligand_vina_gpu, receptor_path=receptor_path, center=center, size=size, output_dir=output_dir
+            )
             prepared_ligands = ligand_files
 
         if dock_func is None:
@@ -350,10 +367,7 @@ energy_range = {self.config.energy_range}
             else:
                 # Fallback to CPU parallelization
                 with ProcessPoolExecutor(max_workers=self.config.max_concurrent_jobs) as executor:
-                    future_to_ligand = {
-                        executor.submit(dock_func, ligand_path): ligand_path
-                        for ligand_path in prepared_ligands
-                    }
+                    future_to_ligand = {executor.submit(dock_func, ligand_path): ligand_path for ligand_path in prepared_ligands}
 
                     for future in as_completed(future_to_ligand):
                         result = future.result()
@@ -362,6 +376,7 @@ energy_range = {self.config.energy_range}
 
         return results
 
+
 def main():
     """Main function for GPU docking"""
     import argparse
@@ -369,23 +384,17 @@ def main():
     parser = argparse.ArgumentParser(description="GPU-Accelerated Molecular Docking")
     parser.add_argument("--ligand_dir", required=True, help="Directory containing ligand files")
     parser.add_argument("--receptor", required=True, help="Receptor PDB file")
-    parser.add_argument("--center", nargs=3, type=float, required=True,
-                       help="Binding site center coordinates (x y z)")
-    parser.add_argument("--size", nargs=3, type=float, default=[20.0, 20.0, 20.0],
-                       help="Binding site size (x y z)")
+    parser.add_argument("--center", nargs=3, type=float, required=True, help="Binding site center coordinates (x y z)")
+    parser.add_argument("--size", nargs=3, type=float, default=[20.0, 20.0, 20.0], help="Binding site size (x y z)")
     parser.add_argument("--output_dir", required=True, help="Output directory")
-    parser.add_argument("--engine", choices=["autodock_gpu", "vina_gpu"],
-                       default="autodock_gpu", help="Docking engine to use")
+    parser.add_argument("--engine", choices=["autodock_gpu", "vina_gpu"], default="autodock_gpu", help="Docking engine to use")
     parser.add_argument("--batch_size", type=int, default=100, help="Batch size for processing")
     parser.add_argument("--nrun", type=int, default=10, help="Number of runs per ligand")
 
     args = parser.parse_args()
 
     # Setup configuration
-    config = GPUDockingConfig(
-        batch_size=args.batch_size,
-        nrun=args.nrun
-    )
+    config = GPUDockingConfig(batch_size=args.batch_size, nrun=args.nrun)
 
     # Initialize GPU docking engine
     engine = GPUDockingEngine(config)
@@ -412,7 +421,7 @@ def main():
         center=tuple(args.center),
         size=tuple(args.size),
         output_dir=args.output_dir,
-        engine=args.engine
+        engine=args.engine,
     )
     end_time = time.time()
 
@@ -430,14 +439,15 @@ def main():
     print(f"Successful dockings: {len(successful)}")
     print(f"Failed dockings: {len(df) - len(successful)}")
     print(f"Total time: {total_time:.2f} seconds")
-    print(f"Average time per ligand: {total_time/len(ligand_files):.2f} seconds")
-    print(f"Throughput: {len(ligand_files)/total_time:.2f} ligands/second")
+    print(f"Average time per ligand: {total_time / len(ligand_files):.2f} seconds")
+    print(f"Throughput: {len(ligand_files) / total_time:.2f} ligands/second")
 
     if len(successful) > 0:
         print(f"Best binding affinity: {successful['binding_affinity'].min():.2f} kcal/mol")
         print(f"Average binding affinity: {successful['binding_affinity'].mean():.2f} kcal/mol")
 
     print(f"Results saved to: {results_file}")
+
 
 if __name__ == "__main__":
     main()

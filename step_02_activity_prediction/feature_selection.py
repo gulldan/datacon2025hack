@@ -17,10 +17,11 @@ immediately.
 
 from __future__ import annotations
 
+import math
 import sys
 
 import polars as pl
-import polars_ds as pds  # type: ignore
+import polars_ds as pds
 
 import config
 from utils.logger import LOGGER
@@ -69,34 +70,26 @@ def greedy_correlation_filter(df_num: pl.DataFrame, threshold: float) -> list[st
     list[str]
         Names of the selected columns, in the order they appear in *df_num*.
     """
-    import numpy as np  # local import to keep global namespace clean
+    if df_num.width == 0:
+        return []
+
+    # cast→float64 + NaN вместо Null (так безопаснее для math.isnan)
+    df = df_num.with_columns(pl.all().cast(pl.Float64).fill_null(float("nan")))
 
     selected: list[str] = []
-
-    for col in df_num.columns:
-        # Always keep the very first feature
-        if not selected:
+    for col in df.columns:
+        if not selected:  # первый признак берём всегда
             selected.append(col)
             continue
 
-        keep = True
-        for sel in selected:
-            # Prefer faster polars_ds correlation expression if present
-            try:
-                corr_expr = pds.corr(pl.col(col), pl.col(sel))  # type: ignore[attr-defined]
-                corr_val = df_num.select(corr_expr).item()
-            except AttributeError:
-                # Fallback to native polars implementation
-                corr_val = df_num.select(pl.corr(pl.col(col), pl.col(sel))).item()
+        # единственный select: корреляции col со всеми выбранными
+        exprs = [pds.corr(pl.col(col), pl.col(sel)).alias(sel) for sel in selected]
+        corrs = df.select(exprs).row(0)  # tuple с float | None | NaN
 
-            # Replace NaN/None with 0.0 (no correlation when variance is zero)
-            if corr_val is None or (isinstance(corr_val, float) and np.isnan(corr_val)):
-                corr_val = 0.0
+        # превращаем None/NaN в 0.0
+        clean = [0.0 if (c is None or (isinstance(c, float) and math.isnan(c))) else c for c in corrs]
 
-            if abs(corr_val) >= threshold:
-                keep = False
-                break
-        if keep:
+        if all(abs(c) < threshold for c in clean):
             selected.append(col)
 
     return selected

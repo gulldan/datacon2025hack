@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Простой Flask веб-сервер для демонстрации GPU докинга
-"""
+"""Простой Flask веб-сервер для демонстрации GPU докинга"""
 
 import json
 import sys
@@ -237,17 +236,17 @@ def index():
             gpu_available = config.get("use_gpu", False)
             gpu_engine = config.get("gpu_engine", "unknown")
 
-        sample_molecules = json.dumps([
-            {"id": "ethanol", "smiles": "CCO"},
-            {"id": "methanol", "smiles": "CO"},
-            {"id": "water", "smiles": "O"}
-        ], indent=2)
+        sample_molecules = json.dumps(
+            [{"id": "ethanol", "smiles": "CCO"}, {"id": "methanol", "smiles": "CO"}, {"id": "water", "smiles": "O"}], indent=2
+        )
 
-        return render_template_string(HTML_TEMPLATE,
-                                    gpu_status="Доступен" if gpu_available else "Недоступен",
-                                    gpu_engine=gpu_engine,
-                                    current_job=current_job,
-                                    sample_molecules=sample_molecules)
+        return render_template_string(
+            HTML_TEMPLATE,
+            gpu_status="Доступен" if gpu_available else "Недоступен",
+            gpu_engine=gpu_engine,
+            current_job=current_job,
+            sample_molecules=sample_molecules,
+        )
     except Exception as e:
         logger.error(f"Ошибка главной страницы: {e}")
         return f"Ошибка: {e}", 500
@@ -263,14 +262,17 @@ def api_status():
         gpu_info = []
         try:
             import GPUtil  # type: ignore
+
             gpus = GPUtil.getGPUs()
             for gpu in gpus:
-                gpu_info.append({
-                    "name": gpu.name,
-                    "memory_total": gpu.memoryTotal,
-                    "memory_free": gpu.memoryFree,
-                    "utilization": gpu.load * 100
-                })
+                gpu_info.append(
+                    {
+                        "name": gpu.name,
+                        "memory_total": gpu.memoryTotal,
+                        "memory_free": gpu.memoryFree,
+                        "utilization": gpu.load * 100,
+                    }
+                )
         except ImportError:
             pass
 
@@ -284,14 +286,16 @@ def api_status():
         if config and hasattr(config, "get"):
             gpu_engine = config.get("gpu_engine", "unknown")
 
-        return jsonify({
-            "success": True,
-            "gpu_available": len(gpu_info) > 0,
-            "gpu_devices": gpu_info,
-            "gpu_engine": engine_names.get(gpu_engine, gpu_engine),
-            "job_count": len(job_results),
-            "current_job": current_job
-        })
+        return jsonify(
+            {
+                "success": True,
+                "gpu_available": len(gpu_info) > 0,
+                "gpu_devices": gpu_info,
+                "gpu_engine": engine_names.get(gpu_engine, gpu_engine),
+                "job_count": len(job_results),
+                "current_job": current_job,
+            }
+        )
     except Exception as e:
         logger.error(f"Ошибка API статуса: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -304,10 +308,7 @@ def api_dock():
 
     try:
         if current_job is not None:
-            return jsonify({
-                "success": False,
-                "error": f"Другая задача уже выполняется: {current_job}"
-            }), 400
+            return jsonify({"success": False, "error": f"Другая задача уже выполняется: {current_job}"}), 400
 
         data = request.json
         molecules = data.get("molecules", [])
@@ -336,18 +337,20 @@ def api_dock():
             "end_time": end_time,
             "duration": end_time - start_time,
             "molecules_count": len(molecules),
-            "results_count": len(results)
+            "results_count": len(results),
         }
 
         current_job = None
 
-        return jsonify({
-            "success": True,
-            "job_id": job_id,
-            "results_count": len(results),
-            "duration": end_time - start_time,
-            "message": f"Докинг завершен для {len(results)} молекул за {end_time - start_time:.2f} сек"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "job_id": job_id,
+                "results_count": len(results),
+                "duration": end_time - start_time,
+                "message": f"Докинг завершен для {len(results)} молекул за {end_time - start_time:.2f} сек",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Ошибка докинга: {e}")
@@ -360,25 +363,21 @@ def api_job_status(job_id):
     """API статуса задачи"""
     try:
         if job_id == current_job:
-            return jsonify({
-                "success": True,
-                "status": {
-                    "status": "running",
-                    "message": "Задача выполняется..."
-                }
-            })
+            return jsonify({"success": True, "status": {"status": "running", "message": "Задача выполняется..."}})
 
         if job_id in job_results:
             job_data = job_results[job_id]
-            return jsonify({
-                "success": True,
-                "status": {
-                    "status": "completed",
-                    "results_count": job_data["results_count"],
-                    "duration": job_data["duration"],
-                    "molecules_count": job_data["molecules_count"]
+            return jsonify(
+                {
+                    "success": True,
+                    "status": {
+                        "status": "completed",
+                        "results_count": job_data["results_count"],
+                        "duration": job_data["duration"],
+                        "molecules_count": job_data["molecules_count"],
+                    },
                 }
-            })
+            )
 
         return jsonify({"success": False, "error": "Задача не найдена"}), 404
 
@@ -396,10 +395,7 @@ def api_results():
         for job_id, job_data in job_results.items():
             results[job_id] = job_data["results"]
 
-        return jsonify({
-            "success": True,
-            "results": results
-        })
+        return jsonify({"success": True, "results": results})
 
     except Exception as e:
         logger.error(f"Ошибка получения результатов: {e}")
@@ -410,9 +406,4 @@ if __name__ == "__main__":
     logger.info("🚀 Запуск GPU Docking Flask Server...")
     logger.info("Сервер доступен на http://localhost:5000")
 
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True,
-        threaded=True
-    )
+    app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)

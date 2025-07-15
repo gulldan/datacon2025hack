@@ -26,9 +26,11 @@ from utils.logger import LOGGER
 
 logger = LOGGER
 
+
 @dataclass
 class DPOConfig:
     """Конфигурация для DPO дообучения."""
+
     beta: float = 0.1  # Temperature parameter for DPO
     learning_rate: float = 1e-5
     batch_size: int = 16
@@ -43,6 +45,7 @@ class DPOConfig:
     activity_weight: float = 0.3
     qed_weight: float = 0.2
     sa_weight: float = 0.1
+
 
 class MolecularPreferenceDataset:
     """Датасет с предпочтениями для DPO обучения."""
@@ -74,6 +77,7 @@ class MolecularPreferenceDataset:
 
             # 2. SA Score (синтетическая доступность)
             from rdkit.Chem import rdMolDescriptors
+
             sa_score = rdMolDescriptors.BertzCT(mol) / 100.0  # Нормализуем
             sa_score = max(0, 1 - sa_score)  # Инвертируем (меньше = лучше)
 
@@ -92,10 +96,10 @@ class MolecularPreferenceDataset:
 
             # Комбинированный скор
             total_score = (
-                self.config.qed_weight * qed_score +
-                self.config.sa_weight * sa_score +
-                self.config.activity_weight * activity_score +
-                self.config.docking_weight * docking_proxy
+                self.config.qed_weight * qed_score
+                + self.config.sa_weight * sa_score
+                + self.config.activity_weight * activity_score
+                + self.config.docking_weight * docking_proxy
             )
 
             return total_score
@@ -132,12 +136,9 @@ class MolecularPreferenceDataset:
             bad_smiles, bad_score = scored_molecules[bad_idx]
 
             if good_score > bad_score:  # Проверяем, что предпочтение корректно
-                preferences.append({
-                    "chosen": good_smiles,
-                    "rejected": bad_smiles,
-                    "chosen_score": good_score,
-                    "rejected_score": bad_score
-                })
+                preferences.append(
+                    {"chosen": good_smiles, "rejected": bad_smiles, "chosen_score": good_score, "rejected_score": bad_score}
+                )
 
         logger.info(f"Created {len(preferences)} preference pairs")
         return preferences
@@ -155,6 +156,7 @@ class MolecularPreferenceDataset:
         logger.info(f"Loaded {len(preferences)} preferences from {path}")
         return preferences
 
+
 class DPOTrainer:
     """Тренер для DPO дообучения молекулярных моделей."""
 
@@ -168,10 +170,7 @@ class DPOTrainer:
         for param in self.reference_model.parameters():
             param.requires_grad = False
 
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=config.learning_rate
-        )
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.learning_rate)
 
     def tokenize_molecules(self, molecules: list[str]) -> torch.Tensor:
         """Токенизируем молекулы в SELFIES."""
@@ -193,7 +192,7 @@ class DPOTrainer:
                 if len(token_ids) < self.config.max_length:
                     token_ids.extend([0] * (self.config.max_length - len(token_ids)))
                 else:
-                    token_ids = token_ids[:self.config.max_length]
+                    token_ids = token_ids[: self.config.max_length]
 
                 tokenized.append(token_ids)
             except:
@@ -202,8 +201,7 @@ class DPOTrainer:
 
         return torch.tensor(tokenized, dtype=torch.long)
 
-    def compute_dpo_loss(self, chosen_molecules: list[str],
-                        rejected_molecules: list[str]) -> torch.Tensor:
+    def compute_dpo_loss(self, chosen_molecules: list[str], rejected_molecules: list[str]) -> torch.Tensor:
         """Вычисляем DPO loss."""
         # Токенизируем молекулы
         chosen_tokens = self.tokenize_molecules(chosen_molecules)
@@ -267,7 +265,7 @@ class DPOTrainer:
 
             # Батчи
             for i in range(0, len(preferences), self.config.batch_size):
-                batch = preferences[i:i + self.config.batch_size]
+                batch = preferences[i : i + self.config.batch_size]
                 if len(batch) < self.config.batch_size:
                     continue
 
@@ -276,21 +274,25 @@ class DPOTrainer:
                 num_batches += 1
 
                 if num_batches % 10 == 0:
-                    logger.info(f"Epoch {epoch+1}, Batch {num_batches}, Loss: {loss:.4f}")
+                    logger.info(f"Epoch {epoch + 1}, Batch {num_batches}, Loss: {loss:.4f}")
 
             avg_loss = total_loss / num_batches if num_batches > 0 else 0
-            logger.info(f"Epoch {epoch+1} completed, Average loss: {avg_loss:.4f}")
+            logger.info(f"Epoch {epoch + 1} completed, Average loss: {avg_loss:.4f}")
 
             # Сохраняем checkpoint
             if (epoch + 1) % 5 == 0:
-                checkpoint_path = f"results/dpo_model_epoch_{epoch+1}.pt"
-                torch.save({
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
-                    "epoch": epoch,
-                    "loss": avg_loss
-                }, checkpoint_path)
+                checkpoint_path = f"results/dpo_model_epoch_{epoch + 1}.pt"
+                torch.save(
+                    {
+                        "model_state_dict": self.model.state_dict(),
+                        "optimizer_state_dict": self.optimizer.state_dict(),
+                        "epoch": epoch,
+                        "loss": avg_loss,
+                    },
+                    checkpoint_path,
+                )
                 logger.info(f"Saved checkpoint: {checkpoint_path}")
+
 
 def load_pretrained_model(model_path: str):
     """Загружаем предобученную модель для дообучения."""
@@ -311,9 +313,8 @@ def load_pretrained_model(model_path: str):
 
     return model
 
-def finetune_with_dpo(pretrained_model_path: str,
-                     generated_molecules: list[str],
-                     config: DPOConfig) -> nn.Module:
+
+def finetune_with_dpo(pretrained_model_path: str, generated_molecules: list[str], config: DPOConfig) -> nn.Module:
     """Основная функция для DPO дообучения."""
     logger.info("Starting DPO fine-tuning process")
 
@@ -340,14 +341,10 @@ def finetune_with_dpo(pretrained_model_path: str,
     logger.info("DPO fine-tuning completed")
     return model
 
+
 if __name__ == "__main__":
     # Пример использования
-    config = DPOConfig(
-        beta=0.1,
-        learning_rate=1e-5,
-        batch_size=8,
-        num_epochs=20
-    )
+    config = DPOConfig(beta=0.1, learning_rate=1e-5, batch_size=8, num_epochs=20)
 
     # Пример молекул для создания предпочтений
     example_molecules = [

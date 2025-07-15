@@ -18,14 +18,9 @@ class PretrainedMolecularGenerator:
     Uses entropy/gpt2_zinc_87m as base model.
     """
 
-    def __init__(
-        self,
-        model_name: str = "entropy/gpt2_zinc_87m",
-        max_length: int = 256,
-        device: str = "auto"
-    ):
+    def __init__(self, model_name: str = "entropy/gpt2_zinc_87m", max_length: int = 256, device: str = "auto"):
         """Initialize the pretrained molecular generator.
-        
+
         Args:
             model_name: Hugging Face model name
             max_length: Maximum sequence length
@@ -53,10 +48,7 @@ class PretrainedMolecularGenerator:
             self.logger.info(f"Loading model: {self.model_name}")
 
             # Load tokenizer
-            self.tokenizer = GPT2TokenizerFast.from_pretrained(
-                self.model_name,
-                max_len=self.max_length
-            )
+            self.tokenizer = GPT2TokenizerFast.from_pretrained(self.model_name, max_len=self.max_length)
 
             # Load model
             self.model = GPT2LMHeadModel.from_pretrained(self.model_name)
@@ -76,10 +68,10 @@ class PretrainedMolecularGenerator:
         top_k: int = 50,
         top_p: float = 0.95,
         batch_size: int = 32,
-        filter_valid: bool = True
+        filter_valid: bool = True,
     ) -> list[str]:
         """Generate molecules using the pre-trained model.
-        
+
         Args:
             num_molecules: Number of molecules to generate
             temperature: Sampling temperature
@@ -87,7 +79,7 @@ class PretrainedMolecularGenerator:
             top_p: Top-p (nucleus) sampling
             batch_size: Batch size for generation
             filter_valid: Whether to filter valid molecules
-            
+
         Returns:
             List of generated SMILES strings
         """
@@ -110,7 +102,7 @@ class PretrainedMolecularGenerator:
                     top_k=top_k,
                     top_p=top_p,
                     pad_token_id=self.tokenizer.pad_token_id,
-                    num_return_sequences=1
+                    num_return_sequences=1,
                 )
 
                 # Decode outputs
@@ -150,10 +142,10 @@ class PretrainedMolecularGenerator:
 
     def compute_embeddings(self, smiles_list: list[str]) -> np.ndarray:
         """Compute embeddings for SMILES strings.
-        
+
         Args:
             smiles_list: List of SMILES strings
-            
+
         Returns:
             Numpy array of embeddings
         """
@@ -162,13 +154,7 @@ class PretrainedMolecularGenerator:
         with torch.no_grad():
             for smiles in smiles_list:
                 # Tokenize
-                inputs = self.tokenizer(
-                    smiles,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                    max_length=self.max_length
-                )
+                inputs = self.tokenizer(smiles, return_tensors="pt", padding=True, truncation=True, max_length=self.max_length)
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
                 # Get hidden states
@@ -186,10 +172,10 @@ class PretrainedMolecularGenerator:
 
     def evaluate_molecules(self, smiles_list: list[str]) -> dict[str, float]:
         """Evaluate generated molecules.
-        
+
         Args:
             smiles_list: List of SMILES strings
-            
+
         Returns:
             Dictionary of evaluation metrics
         """
@@ -220,20 +206,14 @@ class PretrainedMolecularGenerator:
             "mean_logp": np.mean(logp_scores) if logp_scores else 0,
             "total_generated": len(smiles_list),
             "valid_molecules": valid_count,
-            "unique_molecules": len(unique_smiles)
+            "unique_molecules": len(unique_smiles),
         }
 
         return metrics
 
-    def fine_tune_for_target(
-        self,
-        target_smiles: list[str],
-        learning_rate: float = 1e-5,
-        epochs: int = 3,
-        batch_size: int = 16
-    ):
+    def fine_tune_for_target(self, target_smiles: list[str], learning_rate: float = 1e-5, epochs: int = 3, batch_size: int = 16):
         """Fine-tune the model on target-specific SMILES.
-        
+
         Args:
             target_smiles: List of target SMILES for fine-tuning
             learning_rate: Learning rate for fine-tuning
@@ -260,17 +240,13 @@ class PretrainedMolecularGenerator:
                 smiles = f"{self.tokenizer.bos_token}{smiles}{self.tokenizer.eos_token}"
 
                 encoding = self.tokenizer(
-                    smiles,
-                    truncation=True,
-                    padding="max_length",
-                    max_length=self.max_length,
-                    return_tensors="pt"
+                    smiles, truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt"
                 )
 
                 return {
                     "input_ids": encoding["input_ids"].flatten(),
                     "attention_mask": encoding["attention_mask"].flatten(),
-                    "labels": encoding["input_ids"].flatten()
+                    "labels": encoding["input_ids"].flatten(),
                 }
 
         # Create dataset and dataloader
@@ -289,11 +265,7 @@ class PretrainedMolecularGenerator:
 
                 optimizer.zero_grad()
                 # Explicitly pass labels to avoid loss_type warning
-                outputs = self.model(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    labels=batch["labels"]
-                )
+                outputs = self.model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"], labels=batch["labels"])
                 loss = outputs.loss
                 loss.backward()
                 optimizer.step()
@@ -301,7 +273,7 @@ class PretrainedMolecularGenerator:
                 total_loss += loss.item()
 
             avg_loss = total_loss / len(dataloader)
-            self.logger.info(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
+            self.logger.info(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
         self.model.eval()
         self.logger.info("Fine-tuning completed")
@@ -312,18 +284,14 @@ def main():
     generator = PretrainedMolecularGenerator()
 
     # Generate molecules
-    molecules = generator.generate_molecules(
-        num_molecules=100,
-        temperature=1.0,
-        batch_size=16
-    )
+    molecules = generator.generate_molecules(num_molecules=100, temperature=1.0, batch_size=16)
 
     # Evaluate
     metrics = generator.evaluate_molecules(molecules)
 
     print("Generated molecules:")
     for i, smiles in enumerate(molecules[:10]):
-        print(f"{i+1}: {smiles}")
+        print(f"{i + 1}: {smiles}")
 
     print("\nMetrics:")
     for key, value in metrics.items():

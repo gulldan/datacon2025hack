@@ -9,6 +9,7 @@ performs:
   * Writes valid, unique, novel structures to ``generated_molecules.parquet`` for
     downstream scoring (T7, T8).
 """
+
 from __future__ import annotations
 
 import random

@@ -8,6 +8,7 @@ The heavy-lifting (parallelisation, caching, cleaning) is done inside
 `descriptor_calculator` – this wrapper only orchestrates the calls and glues
 all pieces together.
 """
+
 from __future__ import annotations
 
 import polars as pl
@@ -34,11 +35,13 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 1. RDKit descriptors (always)
     # ------------------------------------------------------------------
+    LOGGER.info(f"RDKit descriptors started – {len(smiles)} molecules")
     rd_df = dc.calculate_rdkit_descriptors(smiles, use_cache=True)
 
     # ------------------------------------------------------------------
     # 2. Mordred descriptors (optional, heavy)
     # ------------------------------------------------------------------
+    LOGGER.info(f"Mordred descriptors started – {len(smiles)} molecules")
     mord_df = dc.calculate_mordred_descriptors(smiles, ignore_3d=True, use_cache=True)
 
     # ------------------------------------------------------------------
@@ -46,17 +49,20 @@ def main() -> None:
     # ------------------------------------------------------------------
     padel_df = None
     if getattr(config, "USE_PADEL_DESCRIPTORS", False):
-        padel_df = dc.calculate_padel_descriptors(smiles, fingerprints=True, d_2d=True,
-                                                  d_3d=False, use_cache=True)
+        LOGGER.info(f"PaDEL descriptors started – {len(smiles)} molecules")
+        padel_df = dc.calculate_padel_descriptors(smiles, fingerprints=True, d_2d=True, d_3d=False, use_cache=True)
 
     # ------------------------------------------------------------------
     # 4. Fingerprints (Morgan, MACCS, etc.)
     # ------------------------------------------------------------------
+    LOGGER.info(f"Fingerprints started – {len(smiles)} molecules")
     fp_dict = dc.calculate_fingerprints(smiles, use_cache=True)
 
     # ------------------------------------------------------------------
     # 5. Concatenate all pieces horizontally, preserving row order
     # ------------------------------------------------------------------
+    LOGGER.info(f"Concatenating all pieces horizontally – {len(smiles)} molecules")
+
     def rename_if_collision(df: pl.DataFrame, existing_cols: set[str], prefix: str) -> pl.DataFrame:
         """Rename columns that already exist in *existing_cols* by adding *prefix*_"""
         rename_map: dict[str, str] = {}

@@ -72,7 +72,7 @@ class GPUMonitor:
                     "gpu": gpu_stats,
                     "cpu": cpu_stats,
                     "memory": memory_stats,
-                    "processes": process_stats
+                    "processes": process_stats,
                 }
 
                 self.stats.append(combined_stats)
@@ -92,11 +92,17 @@ class GPUMonitor:
     def _get_gpu_stats(self) -> dict:
         """Get GPU utilization and memory stats"""
         try:
-            result = subprocess.run([
-                "nvidia-smi",
-                "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
-                "--format=csv,noheader,nounits"
-            ], check=False, capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+                    "--format=csv,noheader,nounits",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
 
             if result.returncode == 0:
                 values = result.stdout.strip().split(", ")
@@ -105,7 +111,7 @@ class GPUMonitor:
                     "memory_used": float(values[1]),
                     "memory_total": float(values[2]),
                     "temperature": float(values[3]),
-                    "power_draw": float(values[4]) if values[4] != "[N/A]" else 0.0
+                    "power_draw": float(values[4]) if values[4] != "[N/A]" else 0.0,
                 }
             return {"error": result.stderr}
 
@@ -118,7 +124,7 @@ class GPUMonitor:
             return {
                 "utilization": psutil.cpu_percent(interval=None),
                 "cores": psutil.cpu_count(),
-                "load_avg": psutil.getloadavg()
+                "load_avg": psutil.getloadavg(),
             }
         except Exception as e:
             return {"error": str(e)}
@@ -131,7 +137,7 @@ class GPUMonitor:
                 "used_gb": memory.used / (1024**3),
                 "total_gb": memory.total / (1024**3),
                 "percent": memory.percent,
-                "available_gb": memory.available / (1024**3)
+                "available_gb": memory.available / (1024**3),
             }
         except Exception as e:
             return {"error": str(e)}
@@ -143,12 +149,14 @@ class GPUMonitor:
             for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
                 try:
                     if "autodock" in proc.info["name"].lower():
-                        processes.append({
-                            "pid": proc.info["pid"],
-                            "name": proc.info["name"],
-                            "cpu_percent": proc.info["cpu_percent"],
-                            "memory_mb": proc.info["memory_info"].rss / (1024**2)
-                        })
+                        processes.append(
+                            {
+                                "pid": proc.info["pid"],
+                                "name": proc.info["name"],
+                                "cpu_percent": proc.info["cpu_percent"],
+                                "memory_mb": proc.info["memory_info"].rss / (1024**2),
+                            }
+                        )
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
             return processes
@@ -181,16 +189,18 @@ class GPUMonitor:
             else:
                 util_color = "🔵"
 
-            print(f"\r{timestamp} | GPU: {util_color}{gpu_util:5.1f}% | "
-                  f"VRAM: {gpu_mem:5.0f}/{gpu_mem_total:5.0f}MB | "
-                  f"CPU: {cpu['utilization']:5.1f}% | "
-                  f"RAM: {memory['used_gb']:5.1f}GB | "
-                  f"Temp: {gpu_temp:2.0f}°C | "
-                  f"Power: {gpu_power:3.0f}W | "
-                  f"Processes: {len(processes)}", end="")
+            print(
+                f"\r{timestamp} | GPU: {util_color}{gpu_util:5.1f}% | "
+                f"VRAM: {gpu_mem:5.0f}/{gpu_mem_total:5.0f}MB | "
+                f"CPU: {cpu['utilization']:5.1f}% | "
+                f"RAM: {memory['used_gb']:5.1f}GB | "
+                f"Temp: {gpu_temp:2.0f}°C | "
+                f"Power: {gpu_power:3.0f}W | "
+                f"Processes: {len(processes)}",
+                end="",
+            )
         else:
-            print(f"\r{timestamp} | GPU: ERROR | CPU: {cpu['utilization']:5.1f}% | "
-                  f"RAM: {memory['used_gb']:5.1f}GB", end="")
+            print(f"\r{timestamp} | GPU: ERROR | CPU: {cpu['utilization']:5.1f}% | RAM: {memory['used_gb']:5.1f}GB", end="")
 
     def _save_stats(self):
         """Save statistics to log file"""
@@ -213,23 +223,17 @@ class GPUMonitor:
 
         return {
             "duration_seconds": len(self.stats) * self.interval,
-            "gpu_utilization": {
-                "avg": sum(gpu_utils) / len(gpu_utils),
-                "max": max(gpu_utils),
-                "min": min(gpu_utils)
-            },
-            "cpu_utilization": {
-                "avg": sum(cpu_utils) / len(cpu_utils),
-                "max": max(cpu_utils),
-                "min": min(cpu_utils)
-            },
-            "total_samples": len(self.stats)
+            "gpu_utilization": {"avg": sum(gpu_utils) / len(gpu_utils), "max": max(gpu_utils), "min": min(gpu_utils)},
+            "cpu_utilization": {"avg": sum(cpu_utils) / len(cpu_utils), "max": max(cpu_utils), "min": min(cpu_utils)},
+            "total_samples": len(self.stats),
         }
+
 
 def signal_handler(signum, frame):
     """Handle Ctrl+C gracefully"""
     print("\n🛑 Получен сигнал остановки...")
     sys.exit(0)
+
 
 def main():
     """Main function for standalone GPU monitoring"""
@@ -259,8 +263,12 @@ def main():
             summary = monitor.get_performance_summary()
             print("\n\n📊 Сводка производительности:")
             print(f"   Длительность: {summary['duration_seconds']:.1f}s")
-            print(f"   GPU утилизация: {summary['gpu_utilization']['avg']:.1f}% (avg), {summary['gpu_utilization']['max']:.1f}% (max)")
-            print(f"   CPU утилизация: {summary['cpu_utilization']['avg']:.1f}% (avg), {summary['cpu_utilization']['max']:.1f}% (max)")
+            print(
+                f"   GPU утилизация: {summary['gpu_utilization']['avg']:.1f}% (avg), {summary['gpu_utilization']['max']:.1f}% (max)"
+            )
+            print(
+                f"   CPU утилизация: {summary['cpu_utilization']['avg']:.1f}% (avg), {summary['cpu_utilization']['max']:.1f}% (max)"
+            )
         else:
             # Run indefinitely
             while True:
@@ -275,8 +283,13 @@ def main():
         if "error" not in summary:
             print("\n📊 Сводка производительности:")
             print(f"   Длительность: {summary['duration_seconds']:.1f}s")
-            print(f"   GPU утилизация: {summary['gpu_utilization']['avg']:.1f}% (avg), {summary['gpu_utilization']['max']:.1f}% (max)")
-            print(f"   CPU утилизация: {summary['cpu_utilization']['avg']:.1f}% (avg), {summary['cpu_utilization']['max']:.1f}% (max)")
+            print(
+                f"   GPU утилизация: {summary['gpu_utilization']['avg']:.1f}% (avg), {summary['gpu_utilization']['max']:.1f}% (max)"
+            )
+            print(
+                f"   CPU утилизация: {summary['cpu_utilization']['avg']:.1f}% (avg), {summary['cpu_utilization']['max']:.1f}% (max)"
+            )
+
 
 if __name__ == "__main__":
     main()

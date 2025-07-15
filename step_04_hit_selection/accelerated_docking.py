@@ -14,6 +14,8 @@ from multiprocessing import cpu_count
 from pathlib import Path
 
 import psutil
+from rdkit import Chem
+from rdkit.Chem import AllChem
 from tqdm import tqdm
 
 # Добавляем путь к корневой директории проекта
@@ -26,11 +28,13 @@ from utils.logger import LOGGER as logger
 @dataclass
 class DockingJob:
     """Класс для представления задачи докинга"""
+
     ligand_id: str
     ligand_smiles: str
     ligand_pdbqt_path: str
     output_path: str
     priority: int = 0
+
 
 class AcceleratedDocking:
     """Класс для ускоренного молекулярного докинга"""
@@ -43,7 +47,7 @@ class AcceleratedDocking:
         self.timeout = self.config.get("timeout_per_ligand", 60)
         self.temp_dir = Path(tempfile.mkdtemp(prefix="accelerated_docking_"))
         self.fast_screening_ratio = 0.1  # Доля молекул для точного докинга
-        self.grid_generated = False # Флаг, что сетка для AutoDock-GPU создана
+        self.grid_generated = False  # Флаг, что сетка для AutoDock-GPU создана
         self.fld_path = None  # Путь к файлу сетки для AutoDock-GPU
 
         logger.info(f"Ускоренный докинг инициализирован. GPU: {self.use_gpu}")
@@ -54,8 +58,7 @@ class AcceleratedDocking:
         autodock_gpu_path = self.config.get("autodock_gpu_path", "")
         if autodock_gpu_path and Path(autodock_gpu_path).exists():
             try:
-                result = subprocess.run([autodock_gpu_path, "--help"],
-                                      check=False, capture_output=True, text=True, timeout=5)
+                result = subprocess.run([autodock_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
                     logger.info("AutoDock-GPU доступен")
                     return True
@@ -66,8 +69,7 @@ class AcceleratedDocking:
         vina_gpu_path = self.config.get("vina_gpu_path", "vina_gpu")
         if vina_gpu_path and Path(vina_gpu_path).exists():
             try:
-                result = subprocess.run([vina_gpu_path, "--help"],
-                                      check=False, capture_output=True, text=True, timeout=5)
+                result = subprocess.run([vina_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
                     logger.info("Vina-GPU доступен")
                     return True
@@ -103,10 +105,7 @@ class AcceleratedDocking:
 
             start_time = time.time()
             result = subprocess.run(
-                cmd,
-                check=False, capture_output=True,
-                text=True,
-                timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
+                cmd, check=False, capture_output=True, text=True, timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
             )
 
             if result.returncode != 0:
@@ -252,7 +251,7 @@ class AcceleratedDocking:
 
             # Разбиваем лиганды на более крупные батчи для лучшей загрузки GPU
             batch_size = min(self.config.get("batch_size", 2000), len(ligand_files))
-            batches = [ligand_files[i:i + batch_size] for i in range(0, len(ligand_files), batch_size)]
+            batches = [ligand_files[i : i + batch_size] for i in range(0, len(ligand_files), batch_size)]
 
             logger.info(f"Обработка {len(batches)} батчей по {batch_size} лигандов каждый")
 
@@ -272,18 +271,30 @@ class AcceleratedDocking:
                         # Оптимизированные параметры для максимальной загрузки GPU
                         cmd = [
                             autodock_gpu_path,
-                            "--lfile", str(ligand_file),
-                            "--ffile", str(self.fld_path),
-                            "--resnam", ligand_name,
-                            "--devnum", str(self.config.get("gpu_device", 0) + 1),
-                            "--nrun", str(self.config.get("autodock_gpu_nrun", 50)),
-                            "--nev", str(self.config.get("autodock_gpu_nev", 5000000)),
-                            "--ngen", str(self.config.get("autodock_gpu_ngen", 84000)),
-                            "--psize", str(self.config.get("autodock_gpu_psize", 300)),
-                            "--heuristics", str(self.config.get("autodock_gpu_heuristics", 1)),
-                            "--autostop", str(self.config.get("autodock_gpu_autostop", 0)),
-                            "--dlgoutput", "1",
-                            "--xmloutput", str(self.config.get("autodock_gpu_xml_output", 1)),
+                            "--lfile",
+                            str(ligand_file),
+                            "--ffile",
+                            str(self.fld_path),
+                            "--resnam",
+                            ligand_name,
+                            "--devnum",
+                            str(self.config.get("gpu_device", 0) + 1),
+                            "--nrun",
+                            str(self.config.get("autodock_gpu_nrun", 50)),
+                            "--nev",
+                            str(self.config.get("autodock_gpu_nev", 5000000)),
+                            "--ngen",
+                            str(self.config.get("autodock_gpu_ngen", 84000)),
+                            "--psize",
+                            str(self.config.get("autodock_gpu_psize", 300)),
+                            "--heuristics",
+                            str(self.config.get("autodock_gpu_heuristics", 1)),
+                            "--autostop",
+                            str(self.config.get("autodock_gpu_autostop", 0)),
+                            "--dlgoutput",
+                            "1",
+                            "--xmloutput",
+                            str(self.config.get("autodock_gpu_xml_output", 1)),
                         ]
 
                         future = executor.submit(self._run_single_autodock_gpu, cmd, ligand_name, dlg_path)
@@ -330,7 +341,7 @@ class AcceleratedDocking:
                 capture_output=True,
                 text=True,
                 timeout=self.config.get("timeout_per_ligand", 600),
-                cwd=str(self.temp_dir)
+                cwd=str(self.temp_dir),
             )
 
             if result.returncode == 0:
@@ -469,7 +480,7 @@ class AcceleratedDocking:
             # Если ничего не найдено, логируем первые несколько строк для отладки
             logger.debug("Не удалось найти энергию в DLG файле. Первые 10 строк:")
             for i, line in enumerate(lines[:10]):
-                logger.debug(f"  {i+1}: {line}")
+                logger.debug(f"  {i + 1}: {line}")
 
             return None
         except Exception as e:
@@ -513,7 +524,7 @@ class AcceleratedDocking:
                 f.write("gridfld receptor.maps.fld\n")
                 f.write(f"spacing {spacing}\n")
                 f.write("receptor_types A C HD N NA OA S\n")  # Обновлено согласно реальным типам
-                f.write("ligand_types A C HD N NA OA S\n")    # Обновлено согласно реальным типам
+                f.write("ligand_types A C HD N NA OA S\n")  # Обновлено согласно реальным типам
                 f.write(f"receptor {PROTEIN_PDBQT_PATH}\n")
                 f.write(f"gridcenter {BOX_CENTER[0]} {BOX_CENTER[1]} {BOX_CENTER[2]}\n")
                 f.write("smooth 0.5\n")
@@ -523,7 +534,7 @@ class AcceleratedDocking:
                 f.write("map receptor.N.map\n")
                 f.write("map receptor.NA.map\n")  # Добавлено
                 f.write("map receptor.OA.map\n")
-                f.write("map receptor.S.map\n")   # Добавлено
+                f.write("map receptor.S.map\n")  # Добавлено
                 f.write("elecmap receptor.e.map\n")
                 f.write("dsolvmap receptor.d.map\n")
 
@@ -539,14 +550,7 @@ class AcceleratedDocking:
 
             cmd = [autogrid_path, "-p", str(gpf_path), "-l", str(log_path)]
 
-            result = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                cwd=self.temp_dir
-            )
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=300, cwd=self.temp_dir)
 
             if result.returncode != 0:
                 logger.error(f"autogrid4 завершился с ошибкой: {result.stderr}")
@@ -568,28 +572,37 @@ class AcceleratedDocking:
 
             cmd = [
                 "vina",
-                "--receptor", str(PROTEIN_PDBQT_PATH),
-                "--ligand", str(ligand_file),
-                "--out", str(output_file),
-                "--center_x", str(BOX_CENTER[0]),
-                "--center_y", str(BOX_CENTER[1]),
-                "--center_z", str(BOX_CENTER[2]),
-                "--size_x", str(BOX_SIZE[0]),
-                "--size_y", str(BOX_SIZE[1]),
-                "--size_z", str(BOX_SIZE[2]),
-                "--exhaustiveness", str(self.config.get("exhaustiveness", 8)),
-                "--num_modes", str(self.config.get("num_modes", 9)),
-                "--energy_range", str(self.config.get("energy_range", 3.0)),
-                "--cpu", str(self.config.get("num_threads", cpu_count())),
-                "--verbosity", "1"  # Минимальный вывод с результатами
+                "--receptor",
+                str(PROTEIN_PDBQT_PATH),
+                "--ligand",
+                str(ligand_file),
+                "--out",
+                str(output_file),
+                "--center_x",
+                str(BOX_CENTER[0]),
+                "--center_y",
+                str(BOX_CENTER[1]),
+                "--center_z",
+                str(BOX_CENTER[2]),
+                "--size_x",
+                str(BOX_SIZE[0]),
+                "--size_y",
+                str(BOX_SIZE[1]),
+                "--size_z",
+                str(BOX_SIZE[2]),
+                "--exhaustiveness",
+                str(self.config.get("exhaustiveness", 8)),
+                "--num_modes",
+                str(self.config.get("num_modes", 9)),
+                "--energy_range",
+                str(self.config.get("energy_range", 3.0)),
+                "--cpu",
+                str(self.config.get("num_threads", cpu_count())),
+                "--verbosity",
+                "1",  # Минимальный вывод с результатами
             ]
 
-            result = subprocess.run(
-                cmd,
-                check=False, capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)
 
             if result.returncode == 0:
                 score = self._parse_vina_output(result.stdout)
@@ -628,20 +641,34 @@ class AcceleratedDocking:
             # Используем Vina с GPU-оптимизированными настройками
             cmd = [
                 "vina",
-                "--receptor", str(PROTEIN_PDBQT_PATH),
-                "--ligand", str(ligand_file),
-                "--center_x", str(BOX_CENTER[0]),
-                "--center_y", str(BOX_CENTER[1]),
-                "--center_z", str(BOX_CENTER[2]),
-                "--size_x", str(BOX_SIZE[0]),
-                "--size_y", str(BOX_SIZE[1]),
-                "--size_z", str(BOX_SIZE[2]),
-                "--cpu", "4",  # Используем больше CPU cores для GPU систем
-                "--exhaustiveness", "16",  # Увеличиваем exhaustiveness для GPU
-                "--num_modes", "1",  # Только лучший режим для скорости
-                "--energy_range", "3",  # Сокращаем energy range для скорости
-                "--verbosity", "0",  # Тихий режим
-                "--out", str(output_dir / f"{ligand_file.stem}_out.pdbqt")
+                "--receptor",
+                str(PROTEIN_PDBQT_PATH),
+                "--ligand",
+                str(ligand_file),
+                "--center_x",
+                str(BOX_CENTER[0]),
+                "--center_y",
+                str(BOX_CENTER[1]),
+                "--center_z",
+                str(BOX_CENTER[2]),
+                "--size_x",
+                str(BOX_SIZE[0]),
+                "--size_y",
+                str(BOX_SIZE[1]),
+                "--size_z",
+                str(BOX_SIZE[2]),
+                "--cpu",
+                "4",  # Используем больше CPU cores для GPU систем
+                "--exhaustiveness",
+                "16",  # Увеличиваем exhaustiveness для GPU
+                "--num_modes",
+                "1",  # Только лучший режим для скорости
+                "--energy_range",
+                "3",  # Сокращаем energy range для скорости
+                "--verbosity",
+                "0",  # Тихий режим
+                "--out",
+                str(output_dir / f"{ligand_file.stem}_out.pdbqt"),
             ]
 
             result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)
@@ -696,16 +723,16 @@ class AcceleratedDocking:
         all_scores = {}
 
         for i in range(0, len(molecules), self.batch_size):
-            batch = molecules[i:i + self.batch_size]
-            logger.info(f"Обрабатываем батч {i//self.batch_size + 1}: {len(batch)} молекул")
+            batch = molecules[i : i + self.batch_size]
+            logger.info(f"Обрабатываем батч {i // self.batch_size + 1}: {len(batch)} молекул")
 
             # Создаем временные директории для батча
-            batch_ligand_dir = self.temp_dir / f"batch_{i//self.batch_size}_ligands"
-            batch_output_dir = self.temp_dir / f"batch_{i//self.batch_size}_outputs"
+            batch_ligand_dir = self.temp_dir / f"batch_{i // self.batch_size}_ligands"
+            batch_output_dir = self.temp_dir / f"batch_{i // self.batch_size}_outputs"
             batch_ligand_dir.mkdir(exist_ok=True)
             batch_output_dir.mkdir(exist_ok=True)
 
-            # Подготавливаем лиганды (заглушка)
+            # Подготавливаем лиганды
             ligand_files = []
             for mol in batch:
                 ligand_file = batch_ligand_dir / f"{mol.get('id', 'mol')}.pdbqt"
@@ -744,47 +771,66 @@ class AcceleratedDocking:
         return all_scores
 
     def _prepare_ligand_stub(self, mol: dict, output_file: Path) -> bool:
-        """Подготовка лиганда - создает минимальный но валидный PDBQT файл"""
+        """Полноценная функция подготовки лиганда: SMILES -> 3D PDB -> PDBQT.
+        Заменяет старую заглушку.
+        """
+        smiles = mol.get("smiles") or mol.get("SMILES")
+        mol_id = mol.get("id", "unknown_mol")
+
+        if not smiles:
+            logger.warning(f"[{mol_id}] Пропущено: отсутствует SMILES.")
+            return False
+
+        # --- Этап 1: Генерация 3D-структуры (PDB) с помощью RDKit ---
         try:
-            # Получаем SMILES для информации
-            smiles = mol.get("smiles") or mol.get("SMILES", "CCO")
-            mol_id = mol.get("id", "mol")
+            rdkit_mol = Chem.MolFromSmiles(smiles)
+            if not rdkit_mol:
+                logger.warning(f"[{mol_id}] RDKit не смог прочитать SMILES: {smiles}")
+                return False
 
-            # Создаем минимальный но валидный PDBQT файл для AutoDock-GPU
-            # Используем формат ATOM с правильными типами атомов
-            pdbqt_content = f"""REMARK  Generated for {mol_id}: {smiles}
-REMARK  This is a test ligand for docking
-ROOT
-ATOM      1  C1  MOL     1      -0.748   0.015   0.024  1.00  0.00     0.034 C 
-ATOM      2  C2  MOL     1       0.668   0.015   0.024  1.00  0.00     0.034 C 
-ATOM      3  O1  MOL     1       1.200   1.200   0.024  1.00  0.00    -0.268 OA
-ATOM      4  H1  MOL     1       1.495   1.635   0.464  1.00  0.00     0.298 HD
-ENDROOT
-BRANCH   1   5
-ATOM      5  H2  MOL     1      -1.095  -0.826  -0.564  1.00  0.00     0.048 HD
-ATOM      6  H3  MOL     1      -1.095  -0.067   1.058  1.00  0.00     0.048 HD
-ATOM      7  H4  MOL     1      -1.095   0.939  -0.398  1.00  0.00     0.048 HD
-ENDBRANCH   1   5
-BRANCH   2   8
-ATOM      8  H5  MOL     1       1.015  -0.826  -0.564  1.00  0.00     0.048 HD
-ATOM      9  H6  MOL     1       1.015  -0.067   1.058  1.00  0.00     0.048 HD
-ENDBRANCH   2   8
-TORSDOF 2
-"""
+            rdkit_mol = Chem.AddHs(rdkit_mol)
+            params = AllChem.ETKDGv3()
+            params.randomSeed = 0xF00D  # Для воспроизводимости
+            if AllChem.EmbedMolecule(rdkit_mol, params) == -1:
+                logger.warning(f"[{mol_id}] RDKit не смог сгенерировать 3D-конформер для {smiles}")
+                return False
 
-            with open(output_file, "w") as f:
-                f.write(pdbqt_content)
+            AllChem.UFFOptimizeMolecule(rdkit_mol)
 
-            return output_file.exists() and output_file.stat().st_size > 0
+            # Используем временный PDB файл
+            temp_pdb_path = output_file.with_suffix(".tmp.pdb")
+            Chem.MolToPDBFile(rdkit_mol, str(temp_pdb_path))
 
         except Exception as e:
-            logger.error(f"Ошибка создания лиганда: {e}")
+            logger.error(f"[{mol_id}] Критическая ошибка на этапе RDKit для {smiles}: {e}")
             return False
+
+        # --- Этап 2: Конвертация PDB в PDBQT с помощью OpenBabel ---
+        cmd = ["obabel", str(temp_pdb_path), "-O", str(output_file), "--partialcharge", "gasteiger"]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            error_msg = e.stderr.strip() if hasattr(e, "stderr") else str(e)
+            logger.error(f"[{mol_id}] OpenBabel не смог конвертировать {smiles}. Ошибка: {error_msg}")
+            temp_pdb_path.unlink(missing_ok=True)
+            return False
+        finally:
+            # Гарантированно удаляем временный файл
+            if temp_pdb_path.exists():
+                temp_pdb_path.unlink()
+
+        # --- Этап 3: Валидация ---
+        if not output_file.exists() or output_file.stat().st_size == 0:
+            logger.warning(f"[{mol_id}] OpenBabel создал пустой PDBQT файл для {smiles}.")
+            return False
+
+        return True
 
     def __del__(self):
         """Очистка при удалении объекта"""
         if hasattr(self, "temp_dir") and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
+
 
 class HierarchicalDocking:
     """Иерархический докинг: быстрый скрининг + точный докинг"""
@@ -832,6 +878,7 @@ class HierarchicalDocking:
 
         return fast_scores
 
+
 def optimize_docking_performance() -> dict:
     """Оптимизирует параметры докинга на основе системных ресурсов"""
     logger.info("Оптимизируем параметры докинга")
@@ -859,6 +906,7 @@ def optimize_docking_performance() -> dict:
 
     return optimal_config
 
+
 def run_accelerated_docking_demo():
     """Демонстрация ускоренного докинга"""
     logger.info("=== Демонстрация ускоренного докинга ===")
@@ -867,10 +915,7 @@ def run_accelerated_docking_demo():
     optimal_config = optimize_docking_performance()
 
     # Создаем тестовые молекулы
-    test_molecules = [
-        {"id": f"mol_{i}", "smiles": f'C{"C" * i}N'}
-        for i in range(10)
-    ]
+    test_molecules = [{"id": f"mol_{i}", "smiles": f"C{'C' * i}N"} for i in range(10)]
 
     # Обычный докинг
     logger.info("Тестируем обычный ускоренный докинг...")
@@ -897,6 +942,7 @@ def run_accelerated_docking_demo():
     logger.info(f"Ускорение: {speedup:.2f}x")
 
     return scores, hierarchical_scores
+
 
 if __name__ == "__main__":
     run_accelerated_docking_demo()

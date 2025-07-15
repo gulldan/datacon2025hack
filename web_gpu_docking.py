@@ -68,16 +68,19 @@ class GPUDockingAPI:
         """Получить статус системы и доступность GPU"""
         try:
             import GPUtil
+
             gpus = GPUtil.getGPUs()
             gpu_info = []
             for gpu in gpus:
-                gpu_info.append({
-                    "name": gpu.name,
-                    "memory_total": gpu.memoryTotal,
-                    "memory_free": gpu.memoryFree,
-                    "memory_used": gpu.memoryUsed,
-                    "utilization": gpu.load * 100
-                })
+                gpu_info.append(
+                    {
+                        "name": gpu.name,
+                        "memory_total": gpu.memoryTotal,
+                        "memory_free": gpu.memoryFree,
+                        "memory_used": gpu.memoryUsed,
+                        "utilization": gpu.load * 100,
+                    }
+                )
         except ImportError:
             gpu_info = []
 
@@ -87,7 +90,7 @@ class GPUDockingAPI:
             "gpu_devices": gpu_info,
             "config": self.docking_config,
             "current_job": current_job_id,
-            "job_count": len(job_results)
+            "job_count": len(job_results),
         }
 
     def start_docking(self, molecules: list[dict[str, Any]], job_id: str) -> dict[str, Any]:
@@ -96,17 +99,14 @@ class GPUDockingAPI:
 
         try:
             if current_job_id is not None:
-                return {
-                    "success": False,
-                    "error": f"Другая задача уже выполняется: {current_job_id}"
-                }
+                return {"success": False, "error": f"Другая задача уже выполняется: {current_job_id}"}
 
             current_job_id = job_id
             job_status[job_id] = {
                 "status": "running",
                 "start_time": time.time(),
                 "molecules_count": len(molecules),
-                "completed_count": 0
+                "completed_count": 0,
             }
 
             # Запускаем докинг в отдельном потоке/процессе
@@ -131,22 +131,14 @@ class GPUDockingAPI:
                 "success": True,
                 "job_id": job_id,
                 "results_count": len(results),
-                "message": f"Докинг завершен успешно для {len(results)} молекул"
+                "message": f"Докинг завершен успешно для {len(results)} молекул",
             }
 
         except Exception as e:
             logger.error(f"Ошибка при запуске докинга: {e}")
-            job_status[job_id] = {
-                "status": "failed",
-                "error": str(e),
-                "start_time": time.time(),
-                "end_time": time.time()
-            }
+            job_status[job_id] = {"status": "failed", "error": str(e), "start_time": time.time(), "end_time": time.time()}
             current_job_id = None
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Получить статус задачи"""
@@ -161,11 +153,7 @@ class GPUDockingAPI:
 
     def get_all_jobs(self) -> dict[str, Any]:
         """Получить все задачи"""
-        return {
-            "success": True,
-            "jobs": job_status,
-            "current_job": current_job_id
-        }
+        return {"success": True, "jobs": job_status, "current_job": current_job_id}
 
 
 # Создаем API экземпляр
@@ -319,15 +307,8 @@ async def handle_index(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) -
     </html>
     """
 
-    await send({
-        "type": "http.response.start",
-        "status": 200,
-        "headers": [[b"content-type", b"text/html; charset=utf-8"]]
-    })
-    await send({
-        "type": "http.response.body",
-        "body": html_content.encode("utf-8")
-    })
+    await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"text/html; charset=utf-8"]]})
+    await send({"type": "http.response.body", "body": html_content.encode("utf-8")})
 
 
 async def handle_status(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) -> None:
@@ -335,15 +316,8 @@ async def handle_status(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) 
     status = api.get_status()
     response_data = json.dumps(status, indent=2)
 
-    await send({
-        "type": "http.response.start",
-        "status": 200,
-        "headers": [[b"content-type", b"application/json"]]
-    })
-    await send({
-        "type": "http.response.body",
-        "body": response_data.encode("utf-8")
-    })
+    await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+    await send({"type": "http.response.body", "body": response_data.encode("utf-8")})
 
 
 async def handle_dock(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) -> None:
@@ -364,27 +338,13 @@ async def handle_dock(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) ->
         result = api.start_docking(molecules, job_id)
         response_data = json.dumps(result, indent=2)
 
-        await send({
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [[b"content-type", b"application/json"]]
-        })
-        await send({
-            "type": "http.response.body",
-            "body": response_data.encode("utf-8")
-        })
+        await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+        await send({"type": "http.response.body", "body": response_data.encode("utf-8")})
 
     except Exception as e:
         error_response = json.dumps({"success": False, "error": str(e)})
-        await send({
-            "type": "http.response.start",
-            "status": 400,
-            "headers": [[b"content-type", b"application/json"]]
-        })
-        await send({
-            "type": "http.response.body",
-            "body": error_response.encode("utf-8")
-        })
+        await send({"type": "http.response.start", "status": 400, "headers": [[b"content-type", b"application/json"]]})
+        await send({"type": "http.response.body", "body": error_response.encode("utf-8")})
 
 
 async def handle_job_status(scope: RSGIScope, receive: RSGIReceive, send: RSGISend, job_id: str) -> None:
@@ -392,15 +352,8 @@ async def handle_job_status(scope: RSGIScope, receive: RSGIReceive, send: RSGISe
     result = api.get_job_status(job_id)
     response_data = json.dumps(result, indent=2)
 
-    await send({
-        "type": "http.response.start",
-        "status": 200,
-        "headers": [[b"content-type", b"application/json"]]
-    })
-    await send({
-        "type": "http.response.body",
-        "body": response_data.encode("utf-8")
-    })
+    await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+    await send({"type": "http.response.body", "body": response_data.encode("utf-8")})
 
 
 async def handle_all_jobs(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) -> None:
@@ -408,28 +361,14 @@ async def handle_all_jobs(scope: RSGIScope, receive: RSGIReceive, send: RSGISend
     result = api.get_all_jobs()
     response_data = json.dumps(result, indent=2)
 
-    await send({
-        "type": "http.response.start",
-        "status": 200,
-        "headers": [[b"content-type", b"application/json"]]
-    })
-    await send({
-        "type": "http.response.body",
-        "body": response_data.encode("utf-8")
-    })
+    await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+    await send({"type": "http.response.body", "body": response_data.encode("utf-8")})
 
 
 async def handle_404(scope: RSGIScope, receive: RSGIReceive, send: RSGISend) -> None:
     """Обработка 404 ошибки"""
-    await send({
-        "type": "http.response.start",
-        "status": 404,
-        "headers": [[b"content-type", b"text/plain"]]
-    })
-    await send({
-        "type": "http.response.body",
-        "body": b"Not Found"
-    })
+    await send({"type": "http.response.start", "status": 404, "headers": [[b"content-type", b"text/plain"]]})
+    await send({"type": "http.response.body", "body": b"Not Found"})
 
 
 def main():
@@ -437,14 +376,7 @@ def main():
     logger.info("Запуск GPU Docking Web Server...")
 
     # Создаем и запускаем сервер
-    server = Granian(
-        "web_gpu_docking:app",
-        interface=Interfaces.RSGI,
-        host="0.0.0.0",
-        port=8000,
-        workers=1,
-        reload=True
-    )
+    server = Granian("web_gpu_docking:app", interface=Interfaces.RSGI, host="0.0.0.0", port=8000, workers=1, reload=True)
 
     logger.info("Сервер запущен на http://0.0.0.0:8000")
     server.serve()

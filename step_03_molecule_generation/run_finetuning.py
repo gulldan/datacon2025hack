@@ -14,6 +14,7 @@ from utils.logger import LOGGER
 
 logger = LOGGER
 
+
 def load_existing_molecules() -> list[str]:
     """Загружаем существующие сгенерированные молекулы для дообучения."""
     molecules = []
@@ -39,6 +40,7 @@ def load_existing_molecules() -> list[str]:
 
     return molecules
 
+
 def run_dpo_finetuning(pretrained_model_path: str, molecules: list[str]) -> str:
     """Запускаем DPO дообучение."""
     logger.info("Starting DPO fine-tuning...")
@@ -57,26 +59,19 @@ def run_dpo_finetuning(pretrained_model_path: str, molecules: list[str]) -> str:
         docking_weight=config.DPO_CONFIG["docking_weight"],
         activity_weight=config.DPO_CONFIG["activity_weight"],
         qed_weight=config.DPO_CONFIG["qed_weight"],
-        sa_weight=config.DPO_CONFIG["sa_weight"]
+        sa_weight=config.DPO_CONFIG["sa_weight"],
     )
 
     # Дообучаем модель
-    finetuned_model = finetune_with_dpo(
-        pretrained_model_path,
-        molecules,
-        dpo_config
-    )
+    finetuned_model = finetune_with_dpo(pretrained_model_path, molecules, dpo_config)
 
     # Сохраняем дообученную модель
     output_path = config.GENERATION_RESULTS_DIR / "dpo_finetuned_model.pt"
-    torch.save({
-        "model_state_dict": finetuned_model.state_dict(),
-        "config": dpo_config,
-        "method": "dpo"
-    }, output_path)
+    torch.save({"model_state_dict": finetuned_model.state_dict(), "config": dpo_config, "method": "dpo"}, output_path)
 
     logger.info(f"DPO fine-tuned model saved to {output_path}")
     return str(output_path)
+
 
 def run_rlhf_finetuning(pretrained_model_path: str, molecules: list[str]) -> str:
     """Запускаем RLHF дообучение."""
@@ -100,26 +95,19 @@ def run_rlhf_finetuning(pretrained_model_path: str, molecules: list[str]) -> str
         docking_weight=config.RLHF_CONFIG["docking_weight"],
         activity_weight=config.RLHF_CONFIG["activity_weight"],
         qed_weight=config.RLHF_CONFIG["qed_weight"],
-        sa_weight=config.RLHF_CONFIG["sa_weight"]
+        sa_weight=config.RLHF_CONFIG["sa_weight"],
     )
 
     # Дообучаем модель
-    finetuned_model = finetune_with_rlhf(
-        pretrained_model_path,
-        molecules,
-        rlhf_config
-    )
+    finetuned_model = finetune_with_rlhf(pretrained_model_path, molecules, rlhf_config)
 
     # Сохраняем дообученную модель
     output_path = config.GENERATION_RESULTS_DIR / "rlhf_finetuned_model.pt"
-    torch.save({
-        "model_state_dict": finetuned_model.state_dict(),
-        "config": rlhf_config,
-        "method": "rlhf"
-    }, output_path)
+    torch.save({"model_state_dict": finetuned_model.state_dict(), "config": rlhf_config, "method": "rlhf"}, output_path)
 
     logger.info(f"RLHF fine-tuned model saved to {output_path}")
     return str(output_path)
+
 
 def generate_with_finetuned_model(model_path: str, n_samples: int = 1000) -> list[str]:
     """Генерируем молекулы с помощью дообученной модели."""
@@ -135,9 +123,11 @@ def generate_with_finetuned_model(model_path: str, n_samples: int = 1000) -> lis
 
     if method == "dpo":
         from .dpo_finetuner import load_pretrained_model
+
         model = load_pretrained_model(model_path)
     elif method == "rlhf":
         from .rlhf_finetuner import load_pretrained_model
+
         model = load_pretrained_model(model_path)
     else:
         raise ValueError(f"Unknown fine-tuning method: {method}")
@@ -154,6 +144,7 @@ def generate_with_finetuned_model(model_path: str, n_samples: int = 1000) -> lis
     logger.warning("Using placeholder generation - implement real generation logic")
 
     return generated_molecules
+
 
 def main():
     """Основная функция для запуска дообучения."""
@@ -221,6 +212,8 @@ def main():
 
     logger.info("=== Fine-tuning Pipeline Completed ===")
 
+
 if __name__ == "__main__":
     import torch  # Добавляем импорт здесь
+
     main()
