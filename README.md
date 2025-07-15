@@ -216,25 +216,25 @@ uv run python draw_molecules.py
 ### 📊 Визуализация распределений параметров
 
 #### 🔬 Core Physicochemical Properties
-![Core Physicochemical Properties](panel_1_core_physchem.png)
+![Core Physicochemical Properties](step_04_hit_selection/results/panels/panel_1_core_physchem.png)
 
 #### 🧠 BBB & CNS Penetration
-![BBB & CNS Penetration](panel_2_bbb_cns.png)
+![BBB & CNS Penetration](step_04_hit_selection/results/panels/panel_2_bbb_cns.png)
 
 #### 🏗️ Structure & Drug-likeness
-![Structure & Drug-likeness](panel_3_structure_druglikeness.png)
+![Structure & Drug-likeness](step_04_hit_selection/results/panels/panel_3_structure_druglikeness.png)
 
 #### ⚡ Binding Efficiency
-![Binding Efficiency](panel_4_binding_efficiency.png)
+![Binding Efficiency](step_04_hit_selection/results/panels/panel_4_binding_efficiency.png)
 
 #### 🧪 ADME & Toxicity
-![ADME & Toxicity](panel_5_adme_tox.png)
+![ADME & Toxicity](step_04_hit_selection/results/panels/panel_5_adme_tox.png)
 
 #### 🎯 CNS-Specific Parameters
-![CNS-Specific Parameters](panel_6_cns_specific.png)
+![CNS-Specific Parameters](step_04_hit_selection/results/panels/panel_6_cns_specific.png)
 
 #### 🚨 CNS Risk Assessment Heatmap
-![CNS Risk Assessment](cns_risk_heatmap.png)
+![CNS Risk Assessment](step_04_hit_selection/results/panels/cns_risk_heatmap.png)
 
 ### 🧠 Строгие критерии для терапии болезни Альцгеймера
 
