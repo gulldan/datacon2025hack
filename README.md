@@ -213,6 +213,29 @@ uv run python draw_molecules.py
 - 🎯 **Лучший docking score**: -10.72 kcal/mol
 - 🎯 **Соединения с score ≤ -7**: 226/814 (27.8%)
 
+### 📊 Визуализация распределений параметров
+
+#### 🔬 Core Physicochemical Properties
+![Core Physicochemical Properties](panel_1_core_physchem.png)
+
+#### 🧠 BBB & CNS Penetration
+![BBB & CNS Penetration](panel_2_bbb_cns.png)
+
+#### 🏗️ Structure & Drug-likeness
+![Structure & Drug-likeness](panel_3_structure_druglikeness.png)
+
+#### ⚡ Binding Efficiency
+![Binding Efficiency](panel_4_binding_efficiency.png)
+
+#### 🧪 ADME & Toxicity
+![ADME & Toxicity](panel_5_adme_tox.png)
+
+#### 🎯 CNS-Specific Parameters
+![CNS-Specific Parameters](panel_6_cns_specific.png)
+
+#### 🚨 CNS Risk Assessment Heatmap
+![CNS Risk Assessment](cns_risk_heatmap.png)
+
 ### 🧠 Строгие критерии для терапии болезни Альцгеймера
 
 **Физико-химические / CNS-drug-likeness**:
@@ -293,6 +316,20 @@ uv run python draw_molecules.py
 - CNS-специфичные параметры (проникновение в мозг)
 - Лигандную эффективность (LE, LLE)
 - Химическую привлекательность (QED, SA score)
+
+### 🖼️ Визуализация топ кандидатов
+
+#### 🏆 Топ-5 молекул по Composite Score
+![Top 5 Molecules by Composite Score](top5_cns_mols.png)
+
+#### 📋 Детальная таблица параметров топ-5 молекул
+![Top 5 Molecules Parameters](top5_cns_params.png)
+
+#### 🎯 Топ-5 молекул, максимально близких к прохождению всех критериев
+![Top 5 Molecules Closest to All Criteria](top5_closest_criteria_mols.png)
+
+#### 📊 Параметры молекул, близких к прохождению всех критериев
+![Parameters of Molecules Closest to All Criteria](top5_closest_criteria_params.png)
 
 ## 🔧 Использование
 
