@@ -65,7 +65,7 @@ uv run python step_02_activity_prediction/train_activity_model_scaffold.py
 # дополнительная сложная модель XGBoost (GPU)
 uv run python step_02_activity_prediction/train_activity_model_xgb.py
 
-step "Step 3 – Molecule generation & filtering (SELFIES-VAE)"
+step "Step 3 – Molecule generation & filtering"
 uv run python step_03_molecule_generation/run_generation.py
 uv run python step_03_molecule_generation/validate_generated.py
 uv run python step_03_molecule_generation/filter_and_score.py
@@ -75,24 +75,8 @@ uv run python step_04_hit_selection/protein_prep.py
 uv run python step_04_hit_selection/ligand_prep.py
 
 step "Step 4 – GPU-accelerated docking and hit selection"
-# GPU-accelerated docking with AutoDock-GPU (falls back to CPU if needed)
-if uv run python step_04_hit_selection/run_hit_selection.py; then
-  echo -e "${GREEN}GPU-accelerated docking and hit selection completed successfully.${RESET}"
-else
-  echo "WARNING: GPU docking failed – falling back to CPU docking"
-  if uv run python step_04_hit_selection/run_vina.py; then
-    echo -e "${GREEN}CPU docking completed successfully.${RESET}"
-    uv run python step_04_hit_selection/run_hit_selection.py
-  else
-    echo "WARNING: Both GPU and CPU docking failed – stub scores will be used."
-  fi
-fi
-
-uv run python step_02_activity_prediction/generate_summary_report.py
-
-step "Pipeline completed. Review the following artefacts:"
-echo "  • step_02_activity_prediction/results/metrics_scaffold.json"
-echo "  • step_03_molecule_generation/results/generated_molecules.parquet"
-echo "  • step_04_hit_selection/results/final_hits.parquet"
-
+uv run python step_04_hit_selection/run_vina.py
+uv run python analize_results.py --input step_04_hit_selection/docking/docking_results.parquet --outdir step_04_hit_selection/results/panels
+uv run python desirability_ranking.py --input ./step_04_hit_selection/results/panels/ligands_descriptors.parquet --output step_04_hit_selection/results/top5_desirability_ranked.parquet
+uv run python draw_molecules.py --input step_04_hit_selection/results/top5_desirability_ranked.parquet --n 5
 echo -e "${GREEN}\nAll done!${RESET}" 

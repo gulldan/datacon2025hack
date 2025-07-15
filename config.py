@@ -220,7 +220,7 @@ PRETRAINED_HF_CONFIG = {
     "top_k": 0,
     "top_p": 0.90,
     "batch_size": 32,
-    "num_molecules": 10000,
+    "num_molecules": 1000,
     "repetition_penalty": 1.2,
     "num_return_sequences": 4,
     "filter_valid": True,
@@ -397,9 +397,11 @@ PROTEIN_PDB_PATH = DOCKING_DIR / f"{CHOSEN_PDB_ID}.pdb"
 PROTEIN_PDBQT_PATH = DOCKING_DIR / f"{CHOSEN_PDB_ID}_receptor.pdbqt"
 # Directory for ligand PDBQT files
 LIGAND_PDBQT_DIR = DOCKING_DIR / "ligands"
+LIGAND_MAPPING_PATH = DOCKING_DIR / "ligand_id_map.parquet"
 LIGAND_PDBQT_DIR.mkdir(parents=True, exist_ok=True)
 # Docking poses/scores
 VINA_RESULTS_PATH = DOCKING_DIR / "vina_scores.parquet"
+DOCKING_RESULTS_PATH = DOCKING_DIR / "docking_results.parquet"
 
 # --- Docking box parameters для DYRK1A (PDB: 4YU2) ---
 # Координаты активного сайта DYRK1A, оптимизированные для связывания ингибиторов

@@ -1,5 +1,9 @@
 # step_03_molecule_generation/run_generation.py
 
+# Предполагается, что у вас есть логгер
+import logging
+from collections.abc import Callable
+
 import numpy as np
 import polars as pl
 from rdkit import (
@@ -11,23 +15,38 @@ from rdkit.Chem import (  # type: ignore
     Crippen,
     Descriptors,  # type: ignore
 )
+from rdkit.Chem import rdMolDescriptors as rdMD  # ← новые версии
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
 
 import config
 from utils.logger import LOGGER
 
+LOGGER = logging.getLogger(__name__)
 
-# --- Вспомогательные функции для оценки свойств ---
+
+def _safe(rdkit_fun: str, fallback_fun: Callable[[Chem.Mol], int]) -> Callable[[Chem.Mol], int]:
+    """Return the first available descriptor function."""
+    return getattr(Descriptors, rdkit_fun, fallback_fun)
+
+
+_calc_rot_bonds = _safe("NumRotatableBonds", rdMD.CalcNumRotatableBonds)
+_calc_spiro_atoms = _safe("NumSpiroAtoms", rdMD.CalcNumSpiroAtoms)
+_calc_bridgehead = _safe("NumBridgeheadAtoms", rdMD.CalcNumBridgeheadAtoms)
+
+
 def _calculate_sa_score(mol: Chem.Mol) -> float:
-    """Approximate Synthetic Accessibility score.
-
-    Based on empirical complexity features: size, rings, hetero-atoms, etc.
-    Not as accurate as Ertl & Schuffenhauer (2009) implementation, but
-    provides a deterministic fallback when `sascorer` module is absent.
+    """Approximate Synthetic Accessibility (SA) score on a 1‒10 scale.
+    ➜ Бóльшие значения — сложнее/дороже синтез.
     """
     try:
+        try:
+            Chem.SanitizeMol(mol)
+        except Exception:
+            pass
+
         score = 1.0
 
+        # 1) размер
         num_atoms = mol.GetNumAtoms()
         if num_atoms > 50:
             score += 2.0
@@ -36,39 +55,41 @@ def _calculate_sa_score(mol: Chem.Mol) -> float:
         elif num_atoms > 20:
             score += 1.0
 
+        # 2) циклы
         ring_info = mol.GetRingInfo()
         ring_count = ring_info.NumRings()
         score += 0.5 * ring_count
-
-        # rings bigger than 6 atoms
         complex_rings = sum(1 for ring in ring_info.AtomRings() if len(ring) > 6)
         score += 0.8 * complex_rings
 
-        score += 0.3 * Descriptors.NumRotatableBonds(mol)  # type: ignore[attr-defined]
-        score += 1.0 * Descriptors.NumSpiroAtoms(mol)  # type: ignore[attr-defined]
-        score += 0.8 * Descriptors.NumBridgeheadAtoms(mol)  # type: ignore[attr-defined]
+        # 3) гибкость + «странные» атомы
+        score += 0.3 * _calc_rot_bonds(mol)
+        score += 1.0 * _calc_spiro_atoms(mol)
+        score += 0.8 * _calc_bridgehead(mol)
 
-        # stereocentres counted as chiral centers
-        stereo_centers = Chem.FindPotentialStereo(mol, includeDefinitiveHits=True)
+        # ИСПРАВЛЕНИЕ ЗДЕСЬ:
+        stereo_centers = Chem.FindPotentialStereo(mol, flagPossible=True)
         score += 0.4 * len(stereo_centers)
 
         heteroatoms = sum(1 for atom in mol.GetAtoms() if atom.GetSymbol() not in {"C", "H"})
         score += 0.2 * heteroatoms
 
-        # selected complex functional groups via SMARTS
+        # 4) «хитрые» функциональные группы
         complex_smarts = [
-            "C(=O)N",  # amide
-            "C(=O)O",  # acid/ester
-            "C(=O)[Cl,Br,I]",  # acyl halide
-            "C#N",  # nitrile
-            "C#C",  # alkyne
-            "C=C=C",  # allene
+            "C(=O)N",
+            "C(=O)O",
+            "C(=O)[Cl,Br,I]",
+            "C#N",
+            "C#C",
+            "C=C=C",
         ]
         complex_groups = sum(mol.HasSubstructMatch(Chem.MolFromSmarts(p)) for p in complex_smarts)
         score += 0.3 * complex_groups
 
         return float(max(1.0, min(10.0, score)))
-    except Exception:
+
+    except Exception as exc:
+        LOGGER.warning("SA-score fallback (returned 5.0) — error: %s", exc)
         return 5.0
 
 
@@ -76,22 +97,68 @@ def calculate_sa_score(smiles: str):
     """Расчет Synthetic Accessibility score."""
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if not mol:
+        LOGGER.warning(f"Failed to calculate SA score, returning 5.0: {smiles}")
         return 5.0  # Fallback to heuristic approximation
     # Fallback to heuristic approximation
     return _calculate_sa_score(mol)
 
 
 def calculate_bbbp(smiles: str):
-    """Простая модель для предсказания проницаемости через ГЭБ (BBB)."""
+    """Детерминированная модель для предсказания проницаемости через ГЭБ (BBB).
+
+    Основана на научно обоснованных правилах:
+    - Lipinski Rule of Five (модифицированная для ЦНС)
+    - Egan Rule (TPSA <= 132, LogP <= 5.9)
+    - Veber Rule (RotBonds <= 10, TPSA <= 140)
+    - Молекулярная масса < 500 для ЦНС препаратов
+    """
     mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
     if not mol:
         return 0.0
-    # Правило Egan: TPSA <= 132 и LogP <= 5.9
-    tpsa = QED.properties(mol).PSA
+
+    # Получаем молекулярные дескрипторы
+    molwt = Descriptors.MolWt(mol)  # type: ignore[attr-defined]
     logp = Crippen.MolLogP(mol)
+    tpsa = Descriptors.TPSA(mol)  # type: ignore[attr-defined]
+    hbd = Descriptors.NumHDonors(mol)  # type: ignore[attr-defined]
+    hba = Descriptors.NumHAcceptors(mol)  # type: ignore[attr-defined]
+    rotbonds = Descriptors.NumRotatableBonds(mol)  # type: ignore[attr-defined]
+
+    # Базовый скор (0-1)
+    score = 0.0
+
+    # 1. Правило Egan (основное для ЦНС)
     if tpsa <= 132 and logp <= 5.9:
-        return np.random.uniform(0.7, 1.0)  # Вероятно проходит
-    return np.random.uniform(0.0, 0.3)  # Вероятно не проходит
+        score += 0.4
+    elif tpsa <= 140 and logp <= 5.0:
+        score += 0.3
+    elif tpsa <= 150 and logp <= 4.0:
+        score += 0.2
+
+    # 2. Правило Veber
+    if rotbonds <= 10 and tpsa <= 140:
+        score += 0.2
+
+    # 3. Молекулярная масса (оптимально для ЦНС: 150-500)
+    if 150 <= molwt <= 500:
+        score += 0.2
+    elif 100 <= molwt <= 600:
+        score += 0.1
+
+    # 4. Водородные связи (оптимально для ЦНС)
+    if hbd <= 3 and hba <= 7:
+        score += 0.1
+    elif hbd <= 5 and hba <= 10:
+        score += 0.05
+
+    # 5. LogP оптимизация для ЦНС (1-4 оптимально)
+    if 1.0 <= logp <= 4.0:
+        score += 0.1
+    elif 0.5 <= logp <= 5.0:
+        score += 0.05
+
+    # Нормализуем и ограничиваем результат
+    return min(1.0, max(0.0, score))
 
 
 def get_scoring_function(activity_model):

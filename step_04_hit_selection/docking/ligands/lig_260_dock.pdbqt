@@ -1,0 +1,576 @@
+MODEL 1
+REMARK VINA RESULT:    -5.823      0.000      0.000
+REMARK INTER + INTRA:          -8.366
+REMARK INTER:                  -7.695
+REMARK INTRA:                  -0.670
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1       8.785  10.042  24.179  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       7.610   9.963  23.181  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       8.279   9.296  21.969  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       9.199  10.324  21.291  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1      10.375  10.384  22.275  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1       9.919   9.392  23.359  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.213   8.382  22.598  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1       9.831   7.246  21.969  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      11.072   7.062  22.094  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1       8.148   9.912  26.629  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1       8.203  11.170  26.715  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1       8.495   9.269  25.391  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1       8.591   8.229  25.363  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1       7.315   7.244  28.965  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1       7.707   7.775  27.787  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1       7.733   9.137  27.815  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1       7.363   9.701  29.038  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1       6.994   8.449  30.095  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1       7.163   4.998  27.881  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1       7.209   5.764  29.207  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1       5.984   5.446  30.069  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1       8.999   6.212  21.254  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1       7.599   6.046  21.903  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       7.444   4.671  22.575  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1       6.486   6.236  20.861  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1       8.860   6.627  19.918  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1       9.755   6.560  19.491  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 2
+REMARK VINA RESULT:    -5.698     12.626     15.401
+REMARK INTER + INTRA:          -8.200
+REMARK INTER:                  -7.687
+REMARK INTRA:                  -0.513
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1      16.621  11.990  36.103  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1      15.799  12.147  37.400  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1      14.361  12.107  36.862  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1      14.071  13.436  36.144  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1      14.871  13.267  34.845  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1      15.499  11.877  35.049  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1      14.468  11.159  35.770  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      13.372  10.458  35.155  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      13.287  10.412  33.898  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      18.816  10.803  36.546  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      19.378  11.912  36.761  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      17.437  10.772  36.143  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      17.016   9.871  35.825  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      21.381   8.224  36.367  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      20.806   9.413  36.089  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      19.603   9.565  36.710  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      19.215   8.482  37.503  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      20.420   7.314  37.408  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      22.582   7.319  34.373  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      22.717   7.806  35.819  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      23.350   6.729  36.705  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      12.386   9.682  35.991  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1      11.099  10.500  36.277  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1      10.969  11.704  35.329  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      11.072  10.989  37.733  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      12.061   8.509  35.287  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      11.281   8.716  34.708  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 3
+REMARK VINA RESULT:    -5.652      5.931      8.788
+REMARK INTER + INTRA:          -8.139
+REMARK INTER:                  -7.578
+REMARK INTRA:                  -0.562
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1       9.990   3.873  22.345  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       9.093   4.051  21.102  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       8.657   5.517  21.241  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       7.633   5.615  22.383  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1       8.530   5.460  23.619  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1       9.915   5.281  22.972  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.841   6.136  21.806  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      10.137   7.544  21.799  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      10.527   8.105  22.860  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      11.809   2.172  21.877  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      11.046   1.242  22.256  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      11.363   3.536  21.957  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      12.044   4.309  21.784  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      15.049   0.613  21.290  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      13.853   0.784  21.893  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      13.150   1.825  21.365  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      13.792   2.490  20.318  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      15.277   1.745  20.065  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      16.988   0.024  22.749  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      16.017  -0.471  21.673  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      16.773  -0.979  20.441  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      10.096   8.335  20.516  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1      10.140   9.864  20.778  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       8.735  10.440  21.018  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      10.803  10.601  19.604  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      11.205   7.950  19.743  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      12.001   8.419  20.109  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 4
+REMARK VINA RESULT:    -5.551      5.351      8.723
+REMARK INTER + INTRA:          -8.006
+REMARK INTER:                  -7.314
+REMARK INTRA:                  -0.692
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1      10.136   3.798  22.582  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       9.076   3.854  21.462  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       8.462   5.244  21.687  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       7.584   5.192  22.948  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1       8.641   5.159  24.060  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1       9.945   5.178  23.245  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.609   6.021  22.116  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1       9.704   7.456  22.104  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      10.141   8.061  23.121  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      12.086   2.370  21.820  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      11.498   1.335  22.237  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      11.484   3.659  22.021  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      12.035   4.521  21.809  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      15.341   2.966  20.297  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      14.189   3.300  20.918  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      13.388   2.221  21.139  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      13.912   1.005  20.696  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      15.415   1.310  20.007  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      17.435   4.086  21.072  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      16.407   3.966  19.943  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      15.782   5.327  19.620  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1       9.394   8.240  20.854  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1       9.757   9.741  21.007  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       8.503  10.613  21.187  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      10.557  10.237  19.792  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      10.135   7.673  19.802  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      10.519   6.820  20.134  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 5
+REMARK VINA RESULT:    -5.508     14.759     16.321
+REMARK INTER + INTRA:          -7.950
+REMARK INTER:                  -7.338
+REMARK INTRA:                  -0.612
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1      19.911   8.080  36.205  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1      21.157   8.861  36.674  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1      22.171   8.516  35.573  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1      22.624   7.059  35.765  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1      21.391   6.286  35.277  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1      20.435   7.433  34.907  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1      21.331   8.448  34.393  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      21.787   8.529  33.031  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      21.371   7.694  32.183  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      18.032   9.585  36.996  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      18.246   9.235  38.189  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      18.794   8.990  35.933  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      18.518   9.170  34.942  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      16.198  12.524  35.868  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      17.277  11.725  36.020  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      16.991  10.598  36.730  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      15.662  10.492  37.145  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      14.840  11.854  36.603  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      17.635  14.085  34.550  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      16.236  13.825  35.117  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      15.784  14.980  36.016  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      22.668   9.666  32.578  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1      23.900   9.162  31.782  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1      25.186   9.231  32.622  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      24.087   9.974  30.491  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      21.888  10.512  31.769  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      20.941  10.402  32.049  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 6
+REMARK VINA RESULT:    -5.477      6.008      8.204
+REMARK INTER + INTRA:          -7.907
+REMARK INTER:                  -7.258
+REMARK INTRA:                  -0.650
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1      10.391  13.712  30.226  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       8.862  13.578  30.071  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       8.753  12.765  28.772  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       9.109  13.682  27.590  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1      10.633  13.796  27.735  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1      10.888  12.939  28.987  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.902  11.885  28.864  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      10.090  10.667  28.121  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      11.192  10.448  27.550  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      11.545  13.825  32.480  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      11.875  15.022  32.258  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      10.850  13.079  31.467  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      10.708  12.052  31.593  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      11.736  11.683  35.420  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      11.276  12.089  34.218  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      11.895  13.222  33.782  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      12.871  13.723  34.647  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      12.942  12.711  35.987  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      11.177  10.680  37.638  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      11.230  10.455  36.124  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      12.097   9.240  35.779  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1       9.026   9.598  28.110  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1       8.432   9.357  29.523  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       8.743   7.941  30.035  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1       6.911   9.579  29.523  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1       8.012  10.017  27.230  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1       7.350  10.533  27.762  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 7
+REMARK VINA RESULT:    -5.410      6.717     10.275
+REMARK INTER + INTRA:          -7.819
+REMARK INTER:                  -7.168
+REMARK INTRA:                  -0.652
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1      14.556   5.059  20.293  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1      13.518   4.712  19.205  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1      12.198   5.011  19.930  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1      11.947   3.904  20.967  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1      12.966   4.265  22.057  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1      13.639   5.507  21.450  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1      12.550   6.155  20.749  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      11.623   7.079  21.345  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1      11.756   7.401  22.557  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      16.773   6.285  20.349  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      17.179   5.521  21.267  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      15.431   6.150  19.853  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      15.050   6.873  19.202  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      18.458   9.406  19.518  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      17.507   8.628  20.079  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      17.697   7.306  19.815  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      18.822   7.022  19.037  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      19.582   8.477  18.678  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      17.185  11.524  19.154  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      18.489  10.902  19.662  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      19.701  11.488  18.930  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      10.562   7.754  20.513  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1       9.617   8.629  21.378  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       8.225   7.991  21.522  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1       9.476  10.038  20.781  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      11.215   8.554  19.559  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      10.663   8.543  18.733  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 8
+REMARK VINA RESULT:    -5.357      5.545      8.743
+REMARK INTER + INTRA:          -7.750
+REMARK INTER:                  -7.164
+REMARK INTRA:                  -0.586
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1       9.405   3.544  21.894  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       9.170   4.416  20.643  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       8.744   5.751  21.273  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       7.316   5.600  21.822  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1       7.557   4.750  23.078  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1       9.080   4.545  23.023  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.556   5.797  22.473  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1       9.849   6.975  23.245  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1       9.729   6.945  24.500  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1      11.136   1.708  22.130  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1      10.221   0.864  22.334  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1      10.800   3.095  21.966  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1      11.562   3.809  21.945  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1      14.542   0.933  21.097  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1      13.288   1.413  20.954  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1      12.535   1.239  22.076  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      13.202   0.617  23.134  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      14.769   0.280  22.632  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1      16.430  -0.269  19.989  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1      15.581   1.005  20.013  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1      16.459   2.248  20.190  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      10.406   8.212  22.586  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1       9.817   9.510  23.199  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1       9.095  10.361  22.141  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      10.918  10.348  23.868  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      11.802   8.193  22.756  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      12.195   8.771  22.050  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL
+MODEL 9
+REMARK VINA RESULT:    -5.313      3.078      4.908
+REMARK INTER + INTRA:          -7.691
+REMARK INTER:                  -6.990
+REMARK INTRA:                  -0.701
+REMARK UNBOUND:                -0.670
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_260.pdb
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: C5_6  and  C6_7
+REMARK    5  A    between atoms: N2_9  and  C7_10
+REMARK    6  A    between atoms: C13_17  and  C14_19
+REMARK    7  A    between atoms: C14_19  and  O3_20
+REMARK    8  A    between atoms: C14_19  and  C15_21
+REMARK    9  A    between atoms: C15_21  and  C16_22
+REMARK   10  A    between atoms: C15_21  and  C17_23
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C7  UNL     1       8.470   6.557  24.245  0.00  0.00    +0.095 C 
+ATOM      2  C8  UNL     1       9.452   5.430  24.631  0.00  0.00    +0.046 C 
+ATOM      3  C9  UNL     1       9.854   4.884  23.253  0.00  0.00    +0.078 C 
+ATOM      4  C10 UNL     1       8.672   4.087  22.679  0.00  0.00    +0.024 C 
+ATOM      5  C11 UNL     1       7.708   5.211  22.275  0.00  0.00    +0.026 C 
+ATOM      6  C12 UNL     1       8.495   6.460  22.705  0.00  0.00    +0.097 C 
+ATOM      7  N3  UNL     1       9.869   6.084  22.440  0.00  0.00    -0.291 N 
+ATOM      8  C13 UNL     1      10.531   6.233  21.172  0.00  0.00    +0.245 C 
+ATOM      9  O2  UNL     1       9.915   6.756  20.204  0.00  0.00    -0.273 OA
+ENDROOT
+BRANCH   1  12
+ATOM     10  C6  UNL     1       8.412   8.504  25.865  0.00  0.00    +0.263 C 
+ATOM     11  O1  UNL     1       7.408   8.002  26.441  0.00  0.00    -0.269 OA
+ATOM     12  N2  UNL     1       8.962   7.860  24.705  0.00  0.00    -0.305 N 
+ATOM     13  H8  UNL     1       9.695   8.350  24.145  0.00  0.00    +0.149 HD
+BRANCH  10  16
+ATOM     14  C4  UNL     1       8.917  11.718  27.504  0.00  0.00    +0.082 A 
+ATOM     15  N1  UNL     1       8.213  10.648  27.078  0.00  0.00    -0.239 NA
+ATOM     16  C5  UNL     1       8.988   9.753  26.404  0.00  0.00    +0.133 A 
+ATOM     17  C18 UNL     1      10.334  10.111  26.298  0.00  0.00    +0.080 A 
+ATOM     18  S1  UNL     1      10.538  11.590  27.069  0.00  0.00    -0.080 S 
+BRANCH  14  20
+ATOM     19  C1  UNL     1       7.834  13.963  27.340  0.00  0.00    +0.014 C 
+ATOM     20  C2  UNL     1       8.305  12.850  28.281  0.00  0.00    +0.038 C 
+ATOM     21  C3  UNL     1       9.296  13.389  29.318  0.00  0.00    +0.014 C 
+ENDBRANCH  14  20
+ENDBRANCH  10  16
+ENDBRANCH   1  12
+BRANCH   8  22
+ATOM     22  C14 UNL     1      11.987   5.873  21.014  0.00  0.00    +0.203 C 
+BRANCH  22  23
+ATOM     23  C15 UNL     1      12.192   4.718  19.999  0.00  0.00    +0.020 C 
+ATOM     24  C16 UNL     1      11.985   3.342  20.655  0.00  0.00    +0.010 C 
+ATOM     25  C17 UNL     1      13.593   4.781  19.372  0.00  0.00    +0.010 C 
+ENDBRANCH  22  23
+BRANCH  22  26
+ATOM     26  O3  UNL     1      12.664   7.024  20.573  0.00  0.00    -0.382 OA
+ATOM     27  H19 UNL     1      12.182   7.365  19.774  0.00  0.00    +0.210 HD
+ENDBRANCH  22  26
+ENDBRANCH   8  22
+TORSDOF 6
+ENDMDL

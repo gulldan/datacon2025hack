@@ -1,0 +1,71 @@
+REMARK  Name = /home/qwerty/github/datacon2025hack/step_04_hit_selection/docking/ligands/lig_84.pdb
+REMARK  13 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C2_2  and  C3_3
+REMARK    3  A    between atoms: C2_2  and  C4_4
+REMARK    4  A    between atoms: N1_6  and  C5_7
+REMARK    5  A    between atoms: C8_10  and  C9_11
+REMARK    6  A    between atoms: C9_11  and  N2_12
+REMARK    7  A    between atoms: N3_15  and  C11_16
+REMARK    8  A    between atoms: C11_16  and  C12_17
+REMARK    9  A    between atoms: C17_23  and  O4_25
+REMARK   10  A    between atoms: O4_25  and  C18_26
+REMARK   11  A    between atoms: C18_26  and  C19_27
+REMARK   12  A    between atoms: C18_26  and  C20_28
+REMARK   13  A    between atoms: C18_26  and  C21_29
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  N2  UNL     1       0.385   0.610  -1.487  0.00  0.00    -0.295 N 
+ATOM      2  C10 UNL     1      -0.080   0.926  -0.168  0.00  0.00    +0.300 C 
+ATOM      3  O2  UNL     1       0.509   1.806   0.518  0.00  0.00    -0.253 OA
+ATOM      4  N3  UNL     1      -1.220   0.237   0.365  0.00  0.00    -0.298 N 
+ATOM      5  H13 UNL     1      -0.109  -0.130  -2.033  0.00  0.00    +0.151 HD
+ATOM      6  H14 UNL     1      -1.693  -0.478  -0.231  0.00  0.00    +0.150 HD
+ENDROOT
+BRANCH   1   7
+ATOM      7  C9  UNL     1       1.477   1.338  -2.130  0.00  0.00    +0.141 C 
+BRANCH   7  11
+ATOM      8  C5  UNL     1       5.252   0.403  -0.241  0.00  0.00    +0.033 A 
+ATOM      9  C6  UNL     1       4.728   1.702  -0.177  0.00  0.00    +0.023 A 
+ATOM     10  C7  UNL     1       3.511   2.009  -0.791  0.00  0.00    +0.007 A 
+ATOM     11  C8  UNL     1       2.791   1.015  -1.470  0.00  0.00    -0.030 A 
+ATOM     12  C22 UNL     1       3.300  -0.292  -1.518  0.00  0.00    +0.007 A 
+ATOM     13  C23 UNL     1       4.516  -0.599  -0.901  0.00  0.00    +0.023 A 
+BRANCH   8  16
+ATOM     14  C4  UNL     1       7.430  -0.888  -0.014  0.00  0.00    +0.220 C 
+ATOM     15  O1  UNL     1       7.346  -1.378  -1.175  0.00  0.00    -0.275 OA
+ATOM     16  N1  UNL     1       6.494   0.112   0.423  0.00  0.00    -0.285 N 
+ATOM     17  H8  UNL     1       6.773   0.719   1.227  0.00  0.00    +0.155 HD
+BRANCH  14  19
+ATOM     18  C1  UNL     1       8.740  -2.806   0.926  0.00  0.00    +0.017 C 
+ATOM     19  C2  UNL     1       8.577  -1.282   0.881  0.00  0.00    +0.069 C 
+ATOM     20  C3  UNL     1       9.870  -0.608   0.413  0.00  0.00    +0.017 C 
+ENDBRANCH  14  19
+ENDBRANCH   8  16
+ENDBRANCH   7  11
+ENDBRANCH   1   7
+BRANCH   4  21
+ATOM     21  C11 UNL     1      -1.820   0.561   1.660  0.00  0.00    +0.128 C 
+BRANCH  21  22
+ATOM     22  C12 UNL     1      -3.084   1.431   1.496  0.00  0.00    +0.096 C 
+ATOM     23  C13 UNL     1      -2.722   2.888   1.136  0.00  0.00    +0.024 C 
+ATOM     24  C14 UNL     1      -3.976   3.643   0.688  0.00  0.00    +0.003 C 
+ATOM     25  C15 UNL     1      -4.640   2.996  -0.547  0.00  0.00    +0.019 C 
+ATOM     26  C16 UNL     1      -4.212   1.537  -0.780  0.00  0.00    +0.111 C 
+ATOM     27  N4  UNL     1      -4.009   0.846   0.503  0.00  0.00    -0.263 N 
+ATOM     28  C17 UNL     1      -4.735  -0.363   0.805  0.00  0.00    +0.404 C 
+ATOM     29  O3  UNL     1      -4.694  -0.845   1.969  0.00  0.00    -0.226 OA
+BRANCH  28  30
+ATOM     30  O4  UNL     1      -5.488  -0.993  -0.200  0.00  0.00    -0.445 OA
+BRANCH  30  31
+ATOM     31  C18 UNL     1      -6.263  -2.192  -0.059  0.00  0.00    +0.107 C 
+ATOM     32  C19 UNL     1      -6.907  -2.477  -1.425  0.00  0.00    +0.055 C 
+ATOM     33  C20 UNL     1      -5.360  -3.380   0.323  0.00  0.00    +0.055 C 
+ATOM     34  C21 UNL     1      -7.379  -1.998   0.985  0.00  0.00    +0.055 C 
+ENDBRANCH  30  31
+ENDBRANCH  28  30
+ENDBRANCH  21  22
+ENDBRANCH   4  21
+TORSDOF 8

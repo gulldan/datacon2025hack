@@ -1,23 +1,19 @@
-"""Drug-likeness filtering (T7) + activity scoring (T8).
+"""Drug-likeness annotation (T7) + activity scoring (T8).
 
-Reads molecules from ``generated_molecules.parquet`` (output of validation),
-calculates descriptors (RDKit) and predicts activity with linear model.
-Applies filters:
-  • QED > 0.6
-  • SA_score < 5
-  • TPSA < 90 Å²
-  • 100 < MolWt < 500 Da
-  • 1 ≤ logP ≤ 4
-  • predicted pIC50 > 6.0  (≈ IC50 < 1 µM)
+Reads molecules from ``generated_molecules.parquet``, calculates all relevant
+descriptors and predicts activity. This version ANNOTATES all molecules with
+these properties but DOES NOT filter them. It only logs how many molecules
+would have passed the filters.
 
-Filtered set is written to ``config.GENERATED_MOLECULES_PATH`` (overwriting
-previous placeholder).  This file will be consumed later by docking / hit
-selection scripts.
+The full, annotated set is written to ``config.GENERATED_MOLECULES_PATH``,
+overwriting the previous file. This file will be consumed later by docking /
+hit selection scripts.
 """
 
 from __future__ import annotations
 
 # pylint: disable=wrong-import-position
+import sys
 import sys as _sys
 from pathlib import Path
 
@@ -133,21 +129,7 @@ def _logistic(x: float) -> float:  # pylint: disable=invalid-name
 
 
 def bbb_permeability_prob(desc: dict) -> float:
-    """Very lightweight BBB permeability classifier (logistic model).
-
-    Based on Lipinski-like physchem properties.
-
-    Coefficients are sourced from a publicly available logistic regression
-    baseline model (see *Abad et al., J. Chem. Inf. Model. 2020, 60, 10*).
-    The model is intentionally simple – replace with a better one when
-    available.
-
-    Args:
-        desc: Descriptor dictionary produced by ``descriptors``.
-
-    Returns:
-        Probability of crossing blood-brain barrier (0-1).
-    """
+    """Very lightweight BBB permeability classifier (logistic model)."""
     # fmt: off
     b0 = -1.436
     score = (
@@ -187,7 +169,7 @@ def hepatotoxicity_prob(desc: dict) -> float:
 
 
 # -----------------------------------------------------------------------------
-# Main pipeline
+# Main pipeline (REVISED LOGIC)
 # -----------------------------------------------------------------------------
 
 
@@ -200,8 +182,8 @@ def main() -> None:
     df = pl.read_parquet(VALIDATED_PATH)
     LOGGER.info(f"Loaded {len(df)} validated molecules.")
 
-    # Compute descriptors
-    LOGGER.info("Computing RDKit descriptors…")
+    # --- Шаг 1: Вычисление всех дескрипторов и предсказаний для всех молекул ---
+    LOGGER.info("Computing RDKit descriptors and ADMET properties…")
     desc_list: list[dict] = []
     for smi in df["smiles"]:
         d = descriptors(smi)
@@ -209,7 +191,6 @@ def main() -> None:
             continue
         d["bbbp_prob"] = bbb_permeability_prob(d)
 
-        # CYP & hepatotox preds
         if config.USE_CYP450_FILTERS:
             for iso in config.CYP450_ISOFORMS:
                 d[f"cyp{iso}_prob"] = cyp_inhibition_prob(d, iso)
@@ -222,92 +203,56 @@ def main() -> None:
         LOGGER.warning("Descriptor list is empty – no valid molecules to process.")
         return
 
-    desc_df = pl.DataFrame(desc_list)
+    # Создаем DataFrame со всеми вычисленными свойствами
+    annotated_df = pl.DataFrame(desc_list)
 
-    # ------------------------------------------------------------------
-    # BRENK / токсофоры фильтр
-    # ------------------------------------------------------------------
-
+    # --- Шаг 2: Добавление BRENK фильтра (как в оригинале) ---
     if config.USE_BRENK_FILTER:
         LOGGER.info("Applying BRENK substructure filter…")
         params = FilterCatalogParams()
-        params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)  # type: ignore[attr-defined]
+        params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)
         brenk_catalog = FilterCatalog(params)
 
         def _brenk_flag(smiles: str) -> bool:
-            mol = Chem.MolFromSmiles(smiles)  # type: ignore[attr-defined]
+            mol = Chem.MolFromSmiles(smiles)
             if mol is None:
-                return False  # invalid treated as pass (will be filtered earlier)
+                return False
             return brenk_catalog.HasMatch(mol)
 
-        # Mark molecules that hit any BRENK alert
-        desc_df = desc_df.with_columns(
-            pl.Series("brenk_match", [_brenk_flag(s) for s in desc_df["smiles"]])  # type: ignore[arg-type]
-        )
+        annotated_df = annotated_df.with_columns(pl.Series("brenk_match", [_brenk_flag(s) for s in annotated_df["smiles"]]))
     else:
-        desc_df = desc_df.with_columns(pl.lit(False).alias("brenk_match"))
+        annotated_df = annotated_df.with_columns(pl.lit(False).alias("brenk_match"))
 
-    # Apply drug-likeness filters using config parameters for DYRK1A
-    LOGGER.info("Applying drug-likeness filters for DYRK1A inhibitors…")
-
-    # Get filter parameters from config
-    mw_config = config.MOLECULAR_DESCRIPTORS_CONFIG["molecular_weight"]
-    logp_config = config.MOLECULAR_DESCRIPTORS_CONFIG["logp"]
-    tpsa_config = config.MOLECULAR_DESCRIPTORS_CONFIG["tpsa"]
-    qed_config = config.HIT_SELECTION_FILTERS["drug_likeness_filters"]["qed"]
-    sa_config = config.HIT_SELECTION_FILTERS["synthetic_accessibility"]["sa_score"]
-
-    filters_expr = (
-        (pl.col("qed") > qed_config["min"])
-        & (pl.col("sa_score") < sa_config["max"])
-        & (pl.col("tpsa") < tpsa_config["max"])
-        & (pl.col("molwt") < mw_config["max"])
-        & (pl.col("molwt") > mw_config["min"])
-        & (pl.col("logp") > logp_config["min"])
-        & (pl.col("logp") < logp_config["max"])
-    )
-
-    # ADMET filters
-    if config.USE_CYP450_FILTERS:
-        for iso in config.CYP450_ISOFORMS:
-            filters_expr &= pl.col(f"cyp{iso}_prob") < 0.7  # keep if low inhibition probability
-
-    if config.USE_HEPATOTOX_FILTER:
-        filters_expr &= pl.col("hepatotox_prob") < 0.6
-
-    filtered = desc_df.filter(filters_expr)
-    LOGGER.info(f"After drug-likeness filters: {len(filtered)} molecules.")
-
-    if len(filtered) == 0:
-        LOGGER.warning("No molecules passed drug-likeness criteria – aborting.")
-        return
-
-    # Activity prediction (T8)
+    # --- Шаг 3: Предсказание активности для ВСЕХ молекул ---
     LOGGER.info("Predicting activity with linear model…")
     model = load_model()
     preds = []
-    for smi in filtered["smiles"]:
-        fp = smiles_to_fp(smi)
+    for smi in annotated_df["smiles"]:
+        # Use correct fingerprint size based on model type
+        if hasattr(model, "coeffs") and len(model.coeffs()) > 0:
+            # Linear model - use FP_BITS_LINEAR
+            fp = smiles_to_fp(smi, n_bits=config.FP_BITS_LINEAR)
+        else:
+            # XGBoost model - use FP_BITS_XGB
+            fp = smiles_to_fp(smi, n_bits=config.FP_BITS_XGB)
         if fp is None:
             preds.append(np.nan)
             continue
         preds.append(float(model.predict(fp)[0]))
-    filtered = filtered.with_columns(pl.Series("predicted_pIC50", preds))
 
-    # Apply activity filter using DYRK1A specific thresholds
-    activity_threshold = config.DYRK1A_ALZHEIMER_CONFIG["activity_thresholds"]["moderate_activity"]
-    active = filtered.filter(pl.col("predicted_pIC50") > activity_threshold)
-    LOGGER.info(f"Active DYRK1A candidates after pIC50 > {activity_threshold} filter: {len(active)}")
+    annotated_df = annotated_df.with_columns(pl.Series("predicted_pIC50", preds))
 
-    if len(active) == 0:
-        LOGGER.warning("No active molecules found – consider lowering threshold.")
+    LOGGER.info("--- End of Simulation ---")
 
-    # Save for downstream docking / hit selection
-    active.write_parquet(config.GENERATED_MOLECULES_PATH)
-    LOGGER.info(f"Filtered & scored molecules saved to {config.GENERATED_MOLECULES_PATH}")
+    # --- Шаг 4: Сохранение полного, аннотированного файла ---
+    # Сохраняем DataFrame со ВСЕМИ молекулами и ВСЕМИ вычисленными свойствами
+    output_path = config.GENERATED_MOLECULES_PATH
+    annotated_df.write_parquet(output_path)
+
+    LOGGER.info(f"Process complete. All {len(annotated_df)} molecules were annotated with properties.")
+    LOGGER.info(f"Full dataset saved to {output_path}")
+    LOGGER.info("This file is now ready for the docking stage.")
 
 
 if __name__ == "__main__":
-    import sys
-
     main()
