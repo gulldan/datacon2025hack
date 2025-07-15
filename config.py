@@ -27,7 +27,7 @@ TARGET_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 # 2WO6: Еще одна часто упоминаемая структура
 # 6A1G: Структура в комплексе с соединением 32
 CHOSEN_TARGET_ID = "CHEMBL2292"
-CHOSEN_PDB_ID = "4YU2"
+CHOSEN_PDB_ID = "3ANQ"
 
 # --- DYRK1A специфичные параметры для болезни Альцгеймера ---
 # Согласно исследованиям, DYRK1A является ключевой мишенью при болезни Альцгеймера
@@ -401,10 +401,11 @@ LIGAND_PDBQT_DIR.mkdir(parents=True, exist_ok=True)
 # Docking poses/scores
 VINA_RESULTS_PATH = DOCKING_DIR / "vina_scores.parquet"
 
-# --- Docking box parameters для DYRK1A (PDB: 6S14) ---
+# --- Docking box parameters для DYRK1A (PDB: 4YU2) ---
 # Координаты активного сайта DYRK1A, оптимизированные для связывания ингибиторов
 # Основаны на структурных исследованиях DYRK1A ингибиторов
-BOX_CENTER = (16.5, 9.8, 25.7)  # Центр grid box (Å) - активный сайт DYRK1A
+# BOX_CENTER = (25.7, 9.8, 16.5)  # Центр grid box (Å) - активный сайт DYRK1A
+BOX_CENTER = (15.414, 7.040, 28.534)
 BOX_SIZE = (20.0, 20.0, 20.0)  # Размер grid box (Å) - достаточно для покрытия сайта связывания
 
 # --- Дополнительные параметры докинга для DYRK1A ---
