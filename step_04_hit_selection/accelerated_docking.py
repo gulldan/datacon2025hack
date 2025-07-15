@@ -717,10 +717,11 @@ class AcceleratedDocking:
             return None
 
     def dock_molecules_batch(self, molecules: list[dict]) -> dict[str, float]:
-        """Основная функция для батч-докинга молекул"""
+        """Основная функция для батч-докинга молекул с использованием готовых PDBQT файлов"""
         logger.info(f"Начинаем ускоренный докинг {len(molecules)} молекул")
 
         all_scores = {}
+        ligands_dir = Path("step_04_hit_selection/docking/ligands")
 
         for i in range(0, len(molecules), self.batch_size):
             batch = molecules[i : i + self.batch_size]
@@ -732,16 +733,26 @@ class AcceleratedDocking:
             batch_ligand_dir.mkdir(exist_ok=True)
             batch_output_dir.mkdir(exist_ok=True)
 
-            # Подготавливаем лиганды
+            # Копируем готовые PDBQT файлы лигандов
             ligand_files = []
             for mol in batch:
-                ligand_file = batch_ligand_dir / f"{mol.get('id', 'mol')}.pdbqt"
-                try:
-                    success = self._prepare_ligand_stub(mol, ligand_file)
-                    if success:
-                        ligand_files.append(ligand_file)
-                except Exception as e:
-                    logger.error(f"Ошибка подготовки лиганда {mol.get('id', 'unknown')}: {e}")
+                mol_id = mol.get("id", "mol")
+                # Извлекаем числовой ID из mol_id (убираем префикс 'mol_' если есть)
+                if mol_id.startswith("mol_"):
+                    numeric_id = mol_id[4:]  # Убираем 'mol_'
+                else:
+                    numeric_id = mol_id
+
+                # Ищем соответствующий PDBQT файл
+                ligand_file = ligands_dir / f"lig_{numeric_id}.pdbqt"
+                if ligand_file.exists():
+                    # Копируем в временную директорию для докинга
+                    temp_ligand_file = batch_ligand_dir / f"lig_{numeric_id}.pdbqt"
+                    shutil.copy2(ligand_file, temp_ligand_file)
+                    ligand_files.append(temp_ligand_file)
+                    logger.debug(f"Используем готовый PDBQT файл для молекулы {mol_id} -> lig_{numeric_id}.pdbqt")
+                else:
+                    logger.warning(f"PDBQT файл не найден для молекулы {mol_id} (искали {ligand_file})")
 
             # Запускаем докинг для батча
             if ligand_files:
