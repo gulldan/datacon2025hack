@@ -16,25 +16,17 @@ import polars as pl
 
 def desir_less(x: pl.Series, t: float, h: float) -> pl.Expr:
     """Desirability function for 'less is better' metrics"""
-    return pl.when(x <= t).then(1.0).otherwise(
-        pl.when(x >= h).then(0.0).otherwise((h - x) / (h - t))
-    )
+    return pl.when(x <= t).then(1.0).otherwise(pl.when(x >= h).then(0.0).otherwise((h - x) / (h - t)))
 
 
 def desir_more(x: pl.Series, l: float, t: float) -> pl.Expr:
     """Desirability function for 'more is better' metrics"""
-    return pl.when(x >= t).then(1.0).otherwise(
-        pl.when(x <= l).then(0.0).otherwise((x - l) / (t - l))
-    )
+    return pl.when(x >= t).then(1.0).otherwise(pl.when(x <= l).then(0.0).otherwise((x - l) / (t - l)))
 
 
 def desir_target(x: pl.Series, l: float, opt: float, h: float) -> pl.Expr:
     """Desirability function for 'target is best' metrics (bell curve)"""
-    return pl.when(x <= opt).then(
-        desir_more(x, l, opt)
-    ).otherwise(
-        desir_less(x, opt, h)
-    )
+    return pl.when(x <= opt).then(desir_more(x, l, opt)).otherwise(desir_less(x, opt, h))
 
 
 def calculate_desirability_scores(df: pl.DataFrame) -> pl.DataFrame:
@@ -43,49 +35,59 @@ def calculate_desirability_scores(df: pl.DataFrame) -> pl.DataFrame:
     d_scores = pl.DataFrame()
 
     # CNS-penetration block (weight = 3)
-    d_scores = d_scores.with_columns([
-        desir_more(df["CNS_MPO"], 3, 5).alias("d_mpo"),
-        desir_more(df["logBB_est"], -1.0, -0.3).alias("d_logBB"),
-        desir_less(df["pgp_efflux"], 1, 2).alias("d_pgp"),
-        desir_less(df["bcrp_efflux"], 1, 2).alias("d_bcrp"),
-        desir_more(df["Kp_uu_brain"], 0.3, 0.8).alias("d_kp_brain"),
-    ])
+    d_scores = d_scores.with_columns(
+        [
+            desir_more(df["CNS_MPO"], 3, 5).alias("d_mpo"),
+            desir_more(df["logBB_est"], -1.0, -0.3).alias("d_logBB"),
+            desir_less(df["pgp_efflux"], 1, 2).alias("d_pgp"),
+            desir_less(df["bcrp_efflux"], 1, 2).alias("d_bcrp"),
+            desir_more(df["Kp_uu_brain"], 0.3, 0.8).alias("d_kp_brain"),
+        ]
+    )
 
     # PhysChem block (weight = 1)
-    d_scores = d_scores.with_columns([
-        desir_target(df["MW"], 250, 350, 400).alias("d_mw"),
-        desir_target(df["LogP"], 1, 2.8, 4).alias("d_logp"),
-        desir_target(df["cLogD_74"], 1, 2.5, 3.5).alias("d_clogd"),
-        desir_target(df["TPSA"], 40, 60, 80).alias("d_tpsa"),
-        desir_less(df["HBD"], 0, 2).alias("d_hbd"),
-        desir_less(df["HBA"], 2, 7).alias("d_hba"),
-        desir_less(df["RotB"], 0, 7).alias("d_rotb"),
-    ])
+    d_scores = d_scores.with_columns(
+        [
+            desir_target(df["MW"], 250, 350, 400).alias("d_mw"),
+            desir_target(df["LogP"], 1, 2.8, 4).alias("d_logp"),
+            desir_target(df["cLogD_74"], 1, 2.5, 3.5).alias("d_clogd"),
+            desir_target(df["TPSA"], 40, 60, 80).alias("d_tpsa"),
+            desir_less(df["HBD"], 0, 2).alias("d_hbd"),
+            desir_less(df["HBA"], 2, 7).alias("d_hba"),
+            desir_less(df["RotB"], 0, 7).alias("d_rotb"),
+        ]
+    )
 
     # Binding-efficiency block (weight = 2)
-    d_scores = d_scores.with_columns([
-        desir_more(-df["docking_score"], 6, 8).alias("d_dock"),  # Negative for "more is better"
-        desir_more(df["LE"], 0.2, 0.35).alias("d_le"),
-        desir_more(df["LLE"], 3, 5).alias("d_lle"),
-        desir_more(df["BEI"], 15, 25).alias("d_bei"),
-    ])
+    d_scores = d_scores.with_columns(
+        [
+            desir_more(-df["docking_score"], 6, 8).alias("d_dock"),  # Negative for "more is better"
+            desir_more(df["LE"], 0.2, 0.35).alias("d_le"),
+            desir_more(df["LLE"], 3, 5).alias("d_lle"),
+            desir_more(df["BEI"], 15, 25).alias("d_bei"),
+        ]
+    )
 
     # Safety block (weight = 2)
-    d_scores = d_scores.with_columns([
-        desir_less(df["herg_blocker"], 0.2, 0.3).alias("d_herg"),
-        desir_less(df["cyp3a4_inhib"], 0.3, 0.5).alias("d_cyp3a4"),
-        desir_less(df["cyp2d6_inhib"], 0.3, 0.5).alias("d_cyp2d6"),
-        desir_less(df["hepatotox"], 0.2, 0.3).alias("d_hepatotox"),
-        desir_less(df["ames_mutagen"], 0.2, 0.3).alias("d_ames"),
-        desir_less(df["GSH_reactivity"], 0.1, 0.2).alias("d_gsh"),
-    ])
+    d_scores = d_scores.with_columns(
+        [
+            desir_less(df["herg_blocker"], 0.2, 0.3).alias("d_herg"),
+            desir_less(df["cyp3a4_inhib"], 0.3, 0.5).alias("d_cyp3a4"),
+            desir_less(df["cyp2d6_inhib"], 0.3, 0.5).alias("d_cyp2d6"),
+            desir_less(df["hepatotox"], 0.2, 0.3).alias("d_hepatotox"),
+            desir_less(df["ames_mutagen"], 0.2, 0.3).alias("d_ames"),
+            desir_less(df["GSH_reactivity"], 0.1, 0.2).alias("d_gsh"),
+        ]
+    )
 
     # Selectivity/PD block (weight = 1)
-    d_scores = d_scores.with_columns([
-        desir_less(df["MAOB_inhib"], 0.2, 0.3).alias("d_maob"),
-        desir_less(df["HT2A_binding"], 0.2, 0.3).alias("d_ht2a"),
-        desir_less(df["BACE1_selectivity"], 0.3, 0.5).alias("d_bace1"),
-    ])
+    d_scores = d_scores.with_columns(
+        [
+            desir_less(df["MAOB_inhib"], 0.2, 0.3).alias("d_maob"),
+            desir_less(df["HT2A_binding"], 0.2, 0.3).alias("d_ht2a"),
+            desir_less(df["BACE1_selectivity"], 0.3, 0.5).alias("d_bace1"),
+        ]
+    )
 
     return d_scores
 
@@ -97,15 +99,35 @@ def calculate_composite_score(df: pl.DataFrame, d_scores: pl.DataFrame) -> pl.Da
     # Define weights for each block
     weights = {
         # CNS-penetration block (weight = 3)
-        "d_mpo": 3, "d_logBB": 3, "d_pgp": 3, "d_bcrp": 3, "d_kp_brain": 3,
+        "d_mpo": 3,
+        "d_logBB": 3,
+        "d_pgp": 3,
+        "d_bcrp": 3,
+        "d_kp_brain": 3,
         # PhysChem block (weight = 1)
-        "d_mw": 1, "d_logp": 1, "d_clogd": 1, "d_tpsa": 1, "d_hbd": 1, "d_hba": 1, "d_rotb": 1,
+        "d_mw": 1,
+        "d_logp": 1,
+        "d_clogd": 1,
+        "d_tpsa": 1,
+        "d_hbd": 1,
+        "d_hba": 1,
+        "d_rotb": 1,
         # Binding-efficiency block (weight = 2)
-        "d_dock": 2, "d_le": 2, "d_lle": 2, "d_bei": 2,
+        "d_dock": 2,
+        "d_le": 2,
+        "d_lle": 2,
+        "d_bei": 2,
         # Safety block (weight = 2)
-        "d_herg": 2, "d_cyp3a4": 2, "d_cyp2d6": 2, "d_hepatotox": 2, "d_ames": 2, "d_gsh": 2,
+        "d_herg": 2,
+        "d_cyp3a4": 2,
+        "d_cyp2d6": 2,
+        "d_hepatotox": 2,
+        "d_ames": 2,
+        "d_gsh": 2,
         # Selectivity/PD block (weight = 1)
-        "d_maob": 1, "d_ht2a": 1, "d_bace1": 1,
+        "d_maob": 1,
+        "d_ht2a": 1,
+        "d_bace1": 1,
     }
 
     # Calculate total weight
@@ -127,9 +149,7 @@ def calculate_composite_score(df: pl.DataFrame, d_scores: pl.DataFrame) -> pl.Da
     composite_scores = np.exp(weighted_log_scores / total_weight)
 
     # Add scores to original DataFrame
-    result_df = df.with_columns([
-        pl.Series("Composite_Score", composite_scores)
-    ])
+    result_df = df.with_columns([pl.Series("Composite_Score", composite_scores)])
 
     # Add desirability scores
     result_df = result_df.with_columns(d_scores.select(pl.all()))
@@ -140,6 +160,7 @@ def calculate_composite_score(df: pl.DataFrame, d_scores: pl.DataFrame) -> pl.Da
 def generate_top5_report(df: pl.DataFrame, output_dir: Path):
     """Generate Top-5 report with structures and scores"""
     import numpy as np
+
     def fmt(val, fmtstr):
         if val is None:
             return "NA"
@@ -149,25 +170,26 @@ def generate_top5_report(df: pl.DataFrame, output_dir: Path):
             return fmtstr.format(val)
         except Exception:
             return str(val)
+
     # Get top 5 compounds
     top5 = df.sort("Composite_Score", descending=True).head(5)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TOP-5 COMPOUNDS BY DESIRABILITY SCORE")
-    print("="*60)
+    print("=" * 60)
 
     for i, row in enumerate(top5.iter_rows(named=True), 1):
         print(f"\n{i}. {row['id_ligand']}")
         print(f"   SMILES: {row['smiles']}")
-        print(f"   Composite Score: {fmt(row['Composite_Score'], '{:.4f}')}" )
-        print(f"   Docking Score: {fmt(row['docking_score'], '{:.2f}')}" )
-        print(f"   CNS MPO: {fmt(row['CNS_MPO'], '{:.2f}')}" )
+        print(f"   Composite Score: {fmt(row['Composite_Score'], '{:.4f}')}")
+        print(f"   Docking Score: {fmt(row['docking_score'], '{:.2f}')}")
+        print(f"   CNS MPO: {fmt(row['CNS_MPO'], '{:.2f}')}")
         print(f"   MW: {fmt(row['MW'], '{:.1f}')} Da")
-        print(f"   LogP: {fmt(row['LogP'], '{:.2f}')}" )
-        print(f"   LE: {fmt(row['LE'], '{:.3f}')}" )
-        print(f"   LLE: {fmt(row['LLE'], '{:.2f}')}" )
-        print(f"   hERG Risk: {fmt(row['herg_blocker'], '{:.3f}')}" )
-        print(f"   CYP3A4 Risk: {fmt(row['cyp3a4_inhib'], '{:.3f}')}" )
+        print(f"   LogP: {fmt(row['LogP'], '{:.2f}')}")
+        print(f"   LE: {fmt(row['LE'], '{:.3f}')}")
+        print(f"   LLE: {fmt(row['LLE'], '{:.2f}')}")
+        print(f"   hERG Risk: {fmt(row['herg_blocker'], '{:.3f}')}")
+        print(f"   CYP3A4 Risk: {fmt(row['cyp3a4_inhib'], '{:.3f}')}")
 
     # Save top 5 to CSV
     top5_csv = output_dir / "top5_compounds.csv"
@@ -175,9 +197,9 @@ def generate_top5_report(df: pl.DataFrame, output_dir: Path):
     print(f"\nTop-5 compounds saved to: {top5_csv}")
 
     # Generate desirability breakdown for top 5
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("DESIRABILITY BREAKDOWN FOR TOP-5")
-    print("="*60)
+    print("=" * 60)
 
     d_columns = [col for col in top5.columns if col.startswith("d_")]
     d_columns.sort()
@@ -206,10 +228,7 @@ def main():
     # Filter out molecules with missing key metrics
     print("Filtering molecules with missing key metrics...")
     df_filtered = df.filter(
-        (~pl.col("docking_score").is_null()) &
-        (~pl.col("LE").is_null()) &
-        (~pl.col("LLE").is_null()) &
-        (~pl.col("BEI").is_null())
+        (~pl.col("docking_score").is_null()) & (~pl.col("LE").is_null()) & (~pl.col("LLE").is_null()) & (~pl.col("BEI").is_null())
     )
     print(f"After filtering: {len(df_filtered)} compounds")
 
@@ -236,9 +255,9 @@ def main():
     top5.write_parquet(top5_parquet)
     print(f"Top-5 compounds saved to: {top5_parquet}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("RANKING COMPLETE!")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -38,10 +38,22 @@ CNS_PARAMS = {
 
 # Parameters for table display
 TABLE_PARAMS = [
-    "MW", "LogP", "TPSA", "HBD", "HBA", "RotB", "RingCount",
-    "CNS_MPO", "QED", "LE", "LLE", "docking_score",
-    "logBB_est", "bbb_prob"
+    "MW",
+    "LogP",
+    "TPSA",
+    "HBD",
+    "HBA",
+    "RotB",
+    "RingCount",
+    "CNS_MPO",
+    "QED",
+    "LE",
+    "LLE",
+    "docking_score",
+    "logBB_est",
+    "bbb_prob",
 ]
+
 
 def get_color_for_cns_param(param, value):
     """Get color based on CNS drug discovery thresholds"""
@@ -63,19 +75,19 @@ def get_color_for_cns_param(param, value):
 
     return "black"
 
+
 def draw_mols_horizontal(df, n, out_file):
     """Draw horizontal row of molecules"""
     # Sort by Composite_Score in descending order
     df_sorted = df.sort("Composite_Score", descending=True)
 
     mols = [Chem.MolFromSmiles(smi) for smi in df_sorted["smiles"][:n]]
-    legends = [f"{row['id_ligand']}\nScore: {row['Composite_Score']:.3f}"
-               for row in df_sorted.head(n).iter_rows(named=True)]
+    legends = [f"{row['id_ligand']}\nScore: {row['Composite_Score']:.3f}" for row in df_sorted.head(n).iter_rows(named=True)]
 
-    img = Draw.MolsToGridImage(mols, molsPerRow=n, subImgSize=(300, 300),
-                              legends=legends, useSVG=False)
+    img = Draw.MolsToGridImage(mols, molsPerRow=n, subImgSize=(300, 300), legends=legends, useSVG=False)
     img.save(out_file)
     print(f"Saved: {out_file}")
+
 
 def draw_params_table(df, n, out_file):
     """Draw parameter table with CNS-focused metrics"""
@@ -110,10 +122,10 @@ def draw_params_table(df, n, out_file):
     col_labels = [f"{param}" for param in TABLE_PARAMS]
     row_labels = [row["id_ligand"] for row in top.iter_rows(named=True)]
 
-    fig, ax = plt.subplots(figsize=(2+1.1*len(TABLE_PARAMS), 1+n*0.7))
-    table = ax.table(cellText=data, rowLabels=row_labels, colLabels=col_labels,
-                     cellColours=[[c for c in row] for row in colors],
-                     loc="center")
+    fig, ax = plt.subplots(figsize=(2 + 1.1 * len(TABLE_PARAMS), 1 + n * 0.7))
+    table = ax.table(
+        cellText=data, rowLabels=row_labels, colLabels=col_labels, cellColours=[[c for c in row] for row in colors], loc="center"
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(0.9, 1.1)
@@ -121,7 +133,6 @@ def draw_params_table(df, n, out_file):
     plt.tight_layout()
     plt.savefig(out_file, dpi=300, bbox_inches="tight")
     print(f"Saved: {out_file}")
-
 
 
 def main():
@@ -138,6 +149,7 @@ def main():
     draw_params_table(df, args.n, f"top{args.n}_cns_params.png")
 
     print("✓ All CNS-focused visualizations complete!")
+
 
 if __name__ == "__main__":
     main()
