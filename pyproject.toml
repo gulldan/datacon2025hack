@@ -19,9 +19,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
-[project.urls]
-Repository = "https://github.com/gulldan/datacon2025hack"
-
 dependencies = [
     "polars>=0.20.0",
     "numpy>=1.24.0",
@@ -55,6 +52,9 @@ dependencies = [
     "flask>=3.1.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/gulldan/datacon2025hack"
+
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.0",
@@ -67,7 +67,37 @@ dev = [
 [tool.ruff]
 lint.select = ["ALL"]
 
-lint.ignore = ["RUF002", "RUF003", "TRY300","BLE001","TRY400","PTH118","PTH112","PTH107","D100","G004","RUF010","ISC001","COM812","INP001","RUF001"]
+lint.ignore = [
+    # --- This is a research pipeline of standalone scripts, not a library. ---
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # docstrings are not mandatory on every helper
+    "D205", "D401", "D415",      # docstring formatting pedantry
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN206", "ANN401",  # gradual typing
+    "T201",                      # print() is the output channel of a CLI step
+    "PLR2004",                   # magic numbers are thresholds in cheminformatics code
+    "PLC0415",                   # lazy imports keep heavy deps (torch, rdkit) out of import time
+    "CPY001",                    # no per-file copyright headers
+    "INP001",                    # steps are scripts, not packages
+    # --- Scientific naming conventions that ruff reads as violations ---
+    "N803", "N806",              # X_train, y_test, X are the conventional names in ML code
+    "N812",                      # `import torch.nn.functional as F` is the documented alias
+    "N811",                      # `from loguru import logger as LOGGER` and friends
+    # --- Reproducibility: these must NOT be "fixed" ---
+    "NPY002",                    # legacy np.random API: switching to Generator changes the
+                                 # random stream and would invalidate the committed results
+    # --- Style choices we accept ---
+    "PTH100", "PTH103", "PTH107", "PTH110", "PTH112", "PTH118", "PTH119", "PTH120", "PTH123",
+    "ERA001",                    # commented-out variants document alternatives tried
+    "S101",                      # assert is fine outside production services
+    "PD901",                     # `df` is a readable name here
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "C901",  # long analysis functions
+    "FBT001", "FBT002", "FBT003",
+    "TRY003", "EM101", "EM102", "TRY300", "TRY301", "TRY400",
+    "G004", "BLE001", "DTZ005", "RET504", "SIM108", "B905", "UP035",
+    "TD002", "TD003", "FIX002",
+    "ISC001", "COM812",          # conflict with the formatter
+    "RUF001", "RUF002", "RUF003", "RUF010", "RUF012",
+    "E402",                      # scripts adjust sys.path before importing project modules
+]
 
 lint.unfixable = ["RUF003","RUF001","RUF010", "G004","TRY003","EM101","E712","ERA001", "RET504"]
 

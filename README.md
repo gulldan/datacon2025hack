@@ -86,8 +86,6 @@
 
 ![Пайплайн: 7 стадий от выбора мишени до ранжированных хитов](docs/diagrams/dyrk1a_pipeline.png)
 
-<sub>Исходник диаграммы: [`docs/diagrams/dyrk1a_pipeline.html`](docs/diagrams/dyrk1a_pipeline.html) — самодостаточный HTML, открывается в браузере.</sub>
-
 ```
 datacon2025hack/
 ├── step_01_target_selection/     # Анализ и выбор мишени
@@ -187,8 +185,11 @@ uv run python draw_molecules.py
 ## 📊 Результаты
 
 
-> ✅ Все числа в этом разделе пересчитываются из `step_04_hit_selection/results/panels/ligands_descriptors.parquet`
-> тестом `tests/test_reported_numbers.py` и проверяются в CI при каждом push — README не может разойтись с данными.
+> Счётчики молекул в этом разделе — панели Lipinski и CNS, строгие критерии, распределение docking score —
+> пересчитываются из `step_04_hit_selection/results/panels/ligands_descriptors.parquet` тестом
+> `tests/test_reported_numbers.py` и проверяются в CI при каждом push.
+> Метрики, приходящие с других стадий (R² и RMSE модели, 981/1000 при генерации, лоссы дообучения),
+> этим тестом не покрыты.
 
 ### 📈 Ключевые метрики
 
