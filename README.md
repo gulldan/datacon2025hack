@@ -6,6 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/astral-sh/uv)
+[![CI](https://github.com/gulldan/datacon2025hack/actions/workflows/ci.yml/badge.svg)](https://github.com/gulldan/datacon2025hack/actions/workflows/ci.yml)
 
 ## 📋 Содержание
 
@@ -82,6 +83,10 @@
 - **Ранжирование**: Композитный скор с учетом активности, липидофильности, токсичности
 
 ## 🏗️ Архитектура
+
+![Пайплайн: 7 стадий от выбора мишени до ранжированных хитов](docs/diagrams/dyrk1a_pipeline.png)
+
+<sub>Исходник диаграммы: [`docs/diagrams/dyrk1a_pipeline.html`](docs/diagrams/dyrk1a_pipeline.html) — самодостаточный HTML, открывается в браузере.</sub>
 
 ```
 datacon2025hack/
@@ -181,6 +186,9 @@ uv run python draw_molecules.py
 
 ## 📊 Результаты
 
+
+> ✅ Все числа в этом разделе пересчитываются из `step_04_hit_selection/results/panels/ligands_descriptors.parquet`
+> тестом `tests/test_reported_numbers.py` и проверяются в CI при каждом push — README не может разойтись с данными.
 
 ### 📈 Ключевые метрики
 
