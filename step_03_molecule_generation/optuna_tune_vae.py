@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 
-import optuna  # type: ignore
+import optuna  # type: ignore[import-untyped]
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -74,7 +74,7 @@ def objective(trial: optuna.Trial):
 
     # Train few epochs
     model.train()
-    for epoch in range(3):
+    for _epoch in range(3):
         for src, tgt in loader_train:
             src, tgt = src.to(DEV), tgt.to(DEV)
             opt.zero_grad()

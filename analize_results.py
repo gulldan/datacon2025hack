@@ -61,7 +61,7 @@ RDLogger.DisableLog("rdApp.*")
 try:
     from rdkit.Chem import rdMolDescriptors
 except ImportError as e:  # pragma: no cover
-    raise RuntimeError("RDKit is required but not installed: " + str(e))
+    raise RuntimeError("RDKit is required but not installed: " + str(e)) from e
 
 from rdkit.Chem import QED
 
@@ -115,7 +115,7 @@ def _compute_descriptors(smiles: str) -> dict[str, float | int | bool]:
 
     # CNS MPO score (Wager et al., 2010) – simplified (uses logP for logD)
     def _range_score(x, low, high):
-        return 1.0 if low <= x <= high else (0.0 if x < low else 0.0)
+        return 1.0 if low <= x <= high else 0.0
 
     mpo = (
         _range_score(logp, 2, 3)  # cLogP
@@ -162,7 +162,7 @@ def _compute_descriptors(smiles: str) -> dict[str, float | int | bool]:
         ("nitro_A", "[NX3](=O)=O"),
     ]
     pains_alerts = 0
-    for name, smarts in PAINS_SMARTS:
+    for _name, smarts in PAINS_SMARTS:
         patt = Chem.MolFromSmarts(smarts)
         if patt and mol.HasSubstructMatch(patt):
             pains_alerts += 1
@@ -181,7 +181,7 @@ def _compute_descriptors(smiles: str) -> dict[str, float | int | bool]:
         ("thiol", "[SH]"),
     ]
     reos_alerts = 0
-    for name, smarts in REOS_SMARTS:
+    for _name, smarts in REOS_SMARTS:
         patt = Chem.MolFromSmarts(smarts)
         if patt and mol.HasSubstructMatch(patt):
             reos_alerts += 1
@@ -431,7 +431,7 @@ def plot_core_physchem_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -555,7 +555,7 @@ def plot_bbb_cns_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -680,7 +680,7 @@ def plot_structure_druglikeness_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -795,7 +795,7 @@ def plot_binding_efficiency_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -920,7 +920,7 @@ def plot_adme_tox_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -1045,7 +1045,7 @@ def plot_cns_specific_panel(df, outdir):
                 transform=ax.transAxes,
                 verticalalignment="top",
                 fontsize=8,
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
                 zorder=5,
             )
         else:
@@ -1156,7 +1156,7 @@ def plot_risk_heatmap(df, outdir):
     # Add text annotations
     for i in range(len(compound_labels)):
         for j in range(len(available_metrics)):
-            text = ax.text(j, i, f"{heatmap_data[i][j]:.2f}", ha="center", va="center", color="black", fontsize=8)
+            ax.text(j, i, f"{heatmap_data[i][j]:.2f}", ha="center", va="center", color="black", fontsize=8)
 
     ax.set_title("CNS Risk Assessment Heatmap\n(Top 20 Compounds by Docking Score)", fontsize=14, fontweight="bold")
     ax.set_xlabel("Risk Metrics", fontsize=12)
@@ -1258,7 +1258,7 @@ def main() -> None:
     df_pl = df_pl.with_columns(
         pl.struct(["docking_score", "LogP", "HeavyAtoms", "MW"])
         .map_elements(
-            lambda r: _ligand_efficiency(r),
+            _ligand_efficiency,
             return_dtype=pl.Struct(
                 {
                     "LE": pl.Float64,

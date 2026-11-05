@@ -19,14 +19,14 @@ def desir_less(x: pl.Series, t: float, h: float) -> pl.Expr:
     return pl.when(x <= t).then(1.0).otherwise(pl.when(x >= h).then(0.0).otherwise((h - x) / (h - t)))
 
 
-def desir_more(x: pl.Series, l: float, t: float) -> pl.Expr:
+def desir_more(x: pl.Series, low: float, t: float) -> pl.Expr:
     """Desirability function for 'more is better' metrics"""
-    return pl.when(x >= t).then(1.0).otherwise(pl.when(x <= l).then(0.0).otherwise((x - l) / (t - l)))
+    return pl.when(x >= t).then(1.0).otherwise(pl.when(x <= low).then(0.0).otherwise((x - low) / (t - low)))
 
 
-def desir_target(x: pl.Series, l: float, opt: float, h: float) -> pl.Expr:
+def desir_target(x: pl.Series, low: float, opt: float, h: float) -> pl.Expr:
     """Desirability function for 'target is best' metrics (bell curve)"""
-    return pl.when(x <= opt).then(desir_more(x, l, opt)).otherwise(desir_less(x, opt, h))
+    return pl.when(x <= opt).then(desir_more(x, low, opt)).otherwise(desir_less(x, opt, h))
 
 
 def calculate_desirability_scores(df: pl.DataFrame) -> pl.DataFrame:

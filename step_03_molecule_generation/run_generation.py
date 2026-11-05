@@ -1,27 +1,25 @@
 # step_03_molecule_generation/run_generation.py
 
 # Предполагается, что у вас есть логгер
-import logging
+import contextlib
 from collections.abc import Callable
 
 import numpy as np
 import polars as pl
 from rdkit import (
-    Chem,  # type: ignore
-    DataStructs,  # type: ignore
+    Chem,  # type: ignore[import-untyped]
+    DataStructs,  # type: ignore[import-untyped]
 )
-from rdkit.Chem import (  # type: ignore
+from rdkit.Chem import (  # type: ignore[import-untyped]
     QED,
     Crippen,
-    Descriptors,  # type: ignore
+    Descriptors,  # type: ignore[import-untyped]
 )
 from rdkit.Chem import rdMolDescriptors as rdMD  # ← новые версии
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
-
-LOGGER = logging.getLogger(__name__)
 
 
 def _safe(rdkit_fun: str, fallback_fun: Callable[[Chem.Mol], int]) -> Callable[[Chem.Mol], int]:
@@ -39,10 +37,8 @@ def _calculate_sa_score(mol: Chem.Mol) -> float:
     ➜ Бóльшие значения — сложнее/дороже синтез.
     """
     try:
-        try:
+        with contextlib.suppress(Exception):
             Chem.SanitizeMol(mol)
-        except Exception:
-            pass
 
         score = 1.0
 
@@ -313,6 +309,7 @@ def run_generation_pipeline():
     elif config.GENERATOR_TYPE == "docking_guided":
         LOGGER.info("Генерируем молекулы с docking-guided RL…")
         from step_03_molecule_generation.char_rnn_generator import load_vocabulary  # Используем существующий vocabulary
+
         from step_03_molecule_generation.docking_guided_generator import DockingConfig, train_docking_guided_generator
 
         # Загружаем vocabulary

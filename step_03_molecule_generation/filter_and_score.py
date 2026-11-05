@@ -19,9 +19,9 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
-from rdkit import Chem  # type: ignore
-from rdkit.Chem import QED, Crippen, Descriptors, rdMolDescriptors  # type: ignore
-from rdkit.Chem.FilterCatalog import FilterCatalog, FilterCatalogParams  # type: ignore
+from rdkit import Chem  # type: ignore[import-untyped]
+from rdkit.Chem import QED, Crippen, Descriptors, rdMolDescriptors  # type: ignore[import-untyped]
+from rdkit.Chem.FilterCatalog import FilterCatalog, FilterCatalogParams  # type: ignore[import-untyped]
 
 # Inject repo root to sys.path for config imports when executed as script
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -39,18 +39,19 @@ from utils.logger import LOGGER
 try:
     import importlib.util
 
-    from rdkit.Chem import RDConfig  # type: ignore
+    from rdkit.Chem import RDConfig  # type: ignore[import-untyped]
 
     _sas_path = Path(RDConfig.RDContribDir) / "SA_Score" / "sascorer.py"
     if _sas_path.exists():
         spec = importlib.util.spec_from_file_location("sascorer", str(_sas_path))
-        sascorer = importlib.util.module_from_spec(spec)  # type: ignore
-        assert spec and spec.loader
-        spec.loader.exec_module(sascorer)  # type: ignore
+        sascorer = importlib.util.module_from_spec(spec)  # type: ignore[import-untyped]
+        assert spec is not None
+        assert spec.loader is not None
+        spec.loader.exec_module(sascorer)  # type: ignore[union-attr]
     else:
-        sascorer = None  # type: ignore
+        sascorer = None  # type: ignore[assignment]
 except Exception:
-    sascorer = None  # type: ignore
+    sascorer = None  # type: ignore[assignment]
     LOGGER.warning("SA_Score module not found – using heuristic placeholder.")
 
 
@@ -68,7 +69,6 @@ def sa_score(smiles: str) -> float:
 
     # Basic complexity factors
     num_atoms = mol.GetNumAtoms()  # type: ignore[attr-defined]
-    num_bonds = mol.GetNumBonds()  # type: ignore[attr-defined]
 
     # Stereochemistry complexity
     stereo_centers = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))  # type: ignore[attr-defined]
@@ -149,7 +149,7 @@ def bbb_permeability_prob(desc: dict) -> float:
 # -----------------------------------------------------------------------------
 
 
-def cyp_inhibition_prob(desc: dict, iso: str = "3A4") -> float:
+def cyp_inhibition_prob(desc: dict, _iso: str = "3A4") -> float:
     """Heuristic probability of inhibiting CYP450 isoform (0-1)."""
     b0 = -5.0
     coeff = {

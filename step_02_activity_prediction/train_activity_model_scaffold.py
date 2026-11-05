@@ -16,9 +16,9 @@ from collections import defaultdict
 
 import numpy as np
 import polars as pl
-from polars_ds.linear_models import ElasticNet  # type: ignore
-from rdkit import Chem  # type: ignore
-from rdkit.Chem.Scaffolds import MurckoScaffold  # type: ignore
+from polars_ds.linear_models import ElasticNet  # type: ignore[import-untyped]
+from rdkit import Chem  # type: ignore[import-untyped]
+from rdkit.Chem.Scaffolds import MurckoScaffold  # type: ignore[import-untyped]
 
 import config
 from step_02_activity_prediction.model_utils import smiles_to_fp

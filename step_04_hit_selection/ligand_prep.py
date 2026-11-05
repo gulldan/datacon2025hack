@@ -30,8 +30,8 @@ if str(ROOT_DIR) not in _sys.path:
 
 # Try to import user‑level config and logger; fall back to mock versions
 try:
-    import config  # type: ignore
-    from utils.logger import LOGGER  # type: ignore
+    import config  # type: ignore[import-untyped]
+    from utils.logger import LOGGER  # type: ignore[import-untyped]
 except ImportError:
     import logging
 
@@ -41,7 +41,7 @@ except ImportError:
         # <‑‑ new path to save the ID → SMILES mapping
         LIGAND_MAPPING_PATH = Path("ligand_id_map.parquet")
 
-    config = MockConfig()  # type: ignore
+    config = MockConfig()  # type: ignore[assignment]
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def pdb_to_pdbqt(pdb_path: Path, pdbqt_path: Path) -> None:
         "gasteiger",
     ]
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
         if pdbqt_path.exists():
             fix_pdbqt_multiple_roots(pdbqt_path)
     except subprocess.CalledProcessError as exc:

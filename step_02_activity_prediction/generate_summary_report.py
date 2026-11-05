@@ -14,7 +14,7 @@ import json
 
 import pandas as pd
 import plotly.graph_objects as go
-import xgboost as xgb  # type: ignore
+import xgboost as xgb  # type: ignore[import-untyped]
 
 import config
 

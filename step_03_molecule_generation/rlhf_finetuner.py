@@ -123,16 +123,10 @@ class MolecularFeaturizer:
                 try:
                     activity_pred = predict_activity(self.activity_model, [smiles])
                     features.append(float(activity_pred[0]) if len(activity_pred) > 0 else 0.0)
-                except:
+                except Exception:
                     features.append(0.0)
             else:
                 features.append(0.0)
-
-            # 4. Молекулярные фингерпринты (упрощенная версия)
-            from rdkit.Chem import rdMolDescriptors
-
-            fp = rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
-            fp_array = np.array(fp)
 
             # Объединяем все фичи
             basic_features = np.array(features)
@@ -187,7 +181,7 @@ class PPOTrainer:
             logger.debug(f"Reward calculation failed for {smiles}: {e}")
             return -10.0  # Штраф за проблемные молекулы
 
-    def generate_molecules(self, vocab, n_samples: int = 100) -> list[tuple[str, float]]:
+    def generate_molecules(self, _vocab, n_samples: int = 100) -> list[tuple[str, float]]:
         """Генерируем молекулы и вычисляем их rewards."""
         molecules_with_rewards = []
 
@@ -199,7 +193,7 @@ class PPOTrainer:
                 sample_smiles = "CCO"  # Заглушка
                 reward = self.calculate_reward(sample_smiles)
                 molecules_with_rewards.append((sample_smiles, reward))
-            except:
+            except Exception:  # noqa: S112  -- a single unparsable molecule must not abort a batch of thousands
                 continue
 
         return molecules_with_rewards
@@ -277,7 +271,7 @@ class PPOTrainer:
         with torch.no_grad():
             # Здесь нужна реальная реализация получения log_probs
             # old_log_probs = self.old_policy_model.get_log_probs(states, actions)
-            old_log_probs = torch.zeros(len(molecules))  # Заглушка
+            old_log_probs = torch.zeros(len(molecules))  # noqa: F841  -- placeholder; PPO is not implemented
 
         # PPO epochs
         for _ in range(self.config.ppo_epochs):
@@ -335,7 +329,7 @@ class PPOTrainer:
                     logger.info(f"Saved checkpoint: {checkpoint_path}")
 
 
-def train_reward_model(training_data: list[tuple[str, float]], config: RLHFConfig) -> RewardModel:
+def train_reward_model(training_data: list[tuple[str, float]], _config: RLHFConfig) -> RewardModel:
     """Обучаем reward модель на данных с человеческими предпочтениями."""
     logger.info("Training reward model...")
 
@@ -401,7 +395,6 @@ def finetune_with_rlhf(pretrained_model_path: str, training_molecules: list[str]
 
     # 3. Создаем и обучаем reward модель
     # Создаем тренировочные данные с скорами
-    featurizer = MolecularFeaturizer()
     training_data = []
     for smiles in training_molecules[:1000]:  # Ограничиваем для примера
         try:
@@ -411,7 +404,7 @@ def finetune_with_rlhf(pretrained_model_path: str, training_molecules: list[str]
                 qed_score = QED.qed(mol)
                 score = qed_score  # Упрощенный скор
                 training_data.append((smiles, score))
-        except:
+        except Exception:  # noqa: S112  -- a single unparsable molecule must not abort a batch of thousands
             continue
 
     reward_model = train_reward_model(training_data, config)

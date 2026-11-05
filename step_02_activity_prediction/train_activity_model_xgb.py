@@ -12,13 +12,13 @@ import json
 
 import numpy as np
 import polars as pl
-import xgboost as xgb  # type: ignore
+import xgboost as xgb  # type: ignore[import-untyped]
 from rdkit import (
-    Chem,  # type: ignore
-    DataStructs,  # type: ignore
+    Chem,  # type: ignore[import-untyped]
+    DataStructs,  # type: ignore[import-untyped]
 )
-from rdkit.Chem import Descriptors  # type: ignore
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+from rdkit.Chem import Descriptors  # type: ignore[import-untyped]
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
@@ -65,7 +65,7 @@ def load_dataset() -> pl.DataFrame:
 # Scaffold split util
 # ----------------------------------------------------------------------------
 
-from rdkit.Chem.Scaffolds import MurckoScaffold  # type: ignore
+from rdkit.Chem.Scaffolds import MurckoScaffold  # type: ignore[import-untyped]
 
 
 def scaffold(smiles: str) -> str:

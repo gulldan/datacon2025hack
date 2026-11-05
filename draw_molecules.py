@@ -61,7 +61,7 @@ def get_color_for_cns_param(param, value):
         return "gray"
 
     if param in CNS_PARAMS:
-        min_val, max_val, unit = CNS_PARAMS[param]
+        min_val, max_val, _unit = CNS_PARAMS[param]
 
         if param == "docking_score":
             # More negative is better for docking
@@ -122,9 +122,9 @@ def draw_params_table(df, n, out_file):
     col_labels = [f"{param}" for param in TABLE_PARAMS]
     row_labels = [row["id_ligand"] for row in top.iter_rows(named=True)]
 
-    fig, ax = plt.subplots(figsize=(2 + 1.1 * len(TABLE_PARAMS), 1 + n * 0.7))
+    _fig, ax = plt.subplots(figsize=(2 + 1.1 * len(TABLE_PARAMS), 1 + n * 0.7))
     table = ax.table(
-        cellText=data, rowLabels=row_labels, colLabels=col_labels, cellColours=[[c for c in row] for row in colors], loc="center"
+        cellText=data, rowLabels=row_labels, colLabels=col_labels, cellColours=[list(row) for row in colors], loc="center"
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)

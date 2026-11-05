@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import selfies as sf
@@ -74,7 +75,7 @@ class DockingEvaluator:
         if not os.path.exists(self.protein_pdbqt):
             cmd = f"prepare_receptor4.py -r {self.protein_path} -o {self.protein_pdbqt}"
             try:
-                subprocess.run(cmd, shell=True, check=True, capture_output=True)
+                subprocess.run(cmd, shell=True, check=True, capture_output=True)  # noqa: S602  -- shell pipeline is required to drive the external docking binary
                 logger.info(f"Prepared protein: {self.protein_pdbqt}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to prepare protein: {e}")
@@ -104,7 +105,7 @@ class DockingEvaluator:
             # Convert to PDBQT
             ligand_pdbqt = ligand_sdf.replace(".sdf", ".pdbqt")
             cmd = f"prepare_ligand4.py -l {ligand_sdf} -o {ligand_pdbqt}"
-            subprocess.run(cmd, shell=True, check=True, capture_output=True)
+            subprocess.run(cmd, shell=True, check=True, capture_output=True)  # noqa: S602  -- shell pipeline is required to drive the external docking binary
 
             # Run Vina docking
             output_pdbqt = ligand_pdbqt.replace(".pdbqt", "_out.pdbqt")
@@ -119,7 +120,7 @@ class DockingEvaluator:
                           --num_modes {self.config.num_modes} \
                           --energy_range {self.config.energy_range}"""
 
-            result = subprocess.run(vina_cmd, check=False, shell=True, capture_output=True, text=True)
+            result = subprocess.run(vina_cmd, check=False, shell=True, capture_output=True, text=True)  # noqa: S602  -- shell pipeline is required to drive the external docking binary
 
             # Parse binding affinity from output
             binding_affinity = self.parse_vina_output(result.stdout)
@@ -127,7 +128,7 @@ class DockingEvaluator:
             # Cleanup temporary files
             for temp_file in [ligand_sdf, ligand_pdbqt, output_pdbqt]:
                 if os.path.exists(temp_file):
-                    os.unlink(temp_file)
+                    Path(temp_file).unlink()
 
             return binding_affinity
 
@@ -201,7 +202,7 @@ class DockingGuidedGenerator(nn.Module):
                 try:
                     activity_pred = predict_activity(self.activity_model, [smiles])
                     activity_reward = float(activity_pred[0]) if len(activity_pred) > 0 else 0.0
-                except:
+                except Exception:
                     activity_reward = 0.0
 
             # 3. Drug-likeness (QED)

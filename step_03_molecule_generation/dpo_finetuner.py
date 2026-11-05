@@ -87,7 +87,7 @@ class MolecularPreferenceDataset:
                 try:
                     activity_pred = predict_activity(self.activity_model, [smiles])
                     activity_score = float(activity_pred[0]) if len(activity_pred) > 0 else 0.0
-                except:
+                except Exception:
                     activity_score = 0.0
 
             # 4. Простой docking proxy (липофильность как аппроксимация)
@@ -126,7 +126,7 @@ class MolecularPreferenceDataset:
         preferences = []
         n_pairs = min(1000, len(scored_molecules) // 2)  # Ограничиваем количество пар
 
-        for i in range(n_pairs):
+        for _i in range(n_pairs):
             # Берем хорошую молекулу из топа
             good_idx = np.random.randint(0, len(scored_molecules) // 4)
             # Берем плохую молекулу из низа
@@ -182,7 +182,7 @@ class DPOTrainer:
                 # Токенизируем (упрощенная версия)
                 tokens = list(selfies)
                 # Добавляем специальные токены
-                tokens = ["<BOS>"] + tokens + ["<EOS>"]
+                tokens = ["<BOS>", *tokens, "<EOS>"]
 
                 # Конвертируем в индексы (нужна реальная реализация токенизатора)
                 # Здесь упрощенная версия
@@ -195,7 +195,7 @@ class DPOTrainer:
                     token_ids = token_ids[: self.config.max_length]
 
                 tokenized.append(token_ids)
-            except:
+            except Exception:
                 # Fallback для проблемных молекул
                 tokenized.append([0] * self.config.max_length)
 
@@ -325,7 +325,7 @@ def finetune_with_dpo(pretrained_model_path: str, generated_molecules: list[str]
     reference_model = load_pretrained_model(pretrained_model_path)
 
     # 3. Создаем простой токенизатор (нужна реальная реализация)
-    tokenizer = {token: i for i, token in enumerate(["<PAD>", "<BOS>", "<EOS>"] + list("CNOS()[]=#-+"))}
+    tokenizer = {token: i for i, token in enumerate(["<PAD>", "<BOS>", "<EOS>", *list("CNOS()[]=#-+")])}
 
     # 4. Создаем датасет с предпочтениями
     preference_dataset = MolecularPreferenceDataset(config)

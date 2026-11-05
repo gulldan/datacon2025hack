@@ -9,7 +9,7 @@ import math
 from typing import Any
 
 import numpy as np
-import selfies as sf  # type: ignore
+import selfies as sf  # type: ignore[import-untyped]
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -192,7 +192,7 @@ class TransformerDecoder(nn.Module):
         # tgt: [batch_size, seq_len]
         # latent: [batch_size, latent_dim]
 
-        batch_size, seq_len = tgt.shape
+        _batch_size, seq_len = tgt.shape
 
         # Embed target sequence
         tgt_embedded = self.embedding(tgt) * math.sqrt(self.d_model)
@@ -302,7 +302,7 @@ class TransformerVAE(nn.Module):
                         smi = sf.decoder(selfies_str)
                         if smi and len(smi) > 3:
                             all_smiles.append(smi)
-                    except Exception:
+                    except Exception:  # noqa: S112  -- a single unparsable molecule must not abort a batch of thousands
                         continue
 
             return all_smiles
@@ -346,7 +346,6 @@ def train_transformer_vae(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
     best_loss = float("inf")
-    patience_counter = 0
 
     # Calculate total steps for annealing
     total_steps = num_epochs * len(dataloader)
@@ -368,7 +367,7 @@ def train_transformer_vae(
 
         epoch_start_step = step_count
 
-        for batch_idx, (src, tgt) in enumerate(dataloader):
+        for _batch_idx, (src, tgt) in enumerate(dataloader):
             src, tgt = src.to(dev), tgt.to(dev)
 
             # Calculate beta using chosen annealing schedule
@@ -435,7 +434,8 @@ def train_transformer_vae(
         epoch_beta /= len(dataloader)
 
         LOGGER.info(
-            f"Epoch {epoch + 1}/{num_epochs} - Loss: {avg_loss:.4f}, Recon: {avg_recon:.4f}, KL: {avg_kl:.4f}, Beta: {epoch_beta:.4f}"
+            f"Epoch {epoch + 1}/{num_epochs} - Loss: {avg_loss:.4f}, Recon: {avg_recon:.4f}, "
+            f"KL: {avg_kl:.4f}, Beta: {epoch_beta:.4f}"
         )
 
         scheduler.step()
@@ -449,10 +449,10 @@ def train_transformer_vae(
             improvement = True
 
         # Check if KL divergence is healthy (not collapsed)
-        if avg_kl > 0.01:  # Minimum threshold to avoid collapse
-            if avg_kl > best_kl:
-                best_kl = avg_kl
-                improvement = True
+        # Minimum threshold to avoid collapse
+        if avg_kl > 0.01 and avg_kl > best_kl:
+            best_kl = avg_kl
+            improvement = True
 
         # Save model if overall loss improved
         if avg_loss < best_loss:

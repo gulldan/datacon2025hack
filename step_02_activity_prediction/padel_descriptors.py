@@ -20,7 +20,7 @@ from typing import Any
 
 import pandas as pd
 import polars as pl
-from padelpy import from_smiles  # type: ignore
+from padelpy import from_smiles  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER

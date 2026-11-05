@@ -16,16 +16,19 @@ Requirements: RDKit, numpy, polars, polars_ds, joblib, plotly.
 """
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import plotly.express as px  # type: ignore
+import plotly.express as px  # type: ignore[import-untyped]
 import polars as pl
-from polars_ds.linear_models import ElasticNet  # type: ignore
+from polars_ds.linear_models import ElasticNet  # type: ignore[import-untyped]
 
 import config
 from step_02_activity_prediction.model_utils import smiles_to_fp
 from utils.logger import LOGGER
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # We now rely on modern RDKit MorganGenerator implementation provided via
 # ``model_utils.smiles_to_fp`` to avoid deprecation warnings.

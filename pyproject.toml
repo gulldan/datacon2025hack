@@ -88,7 +88,6 @@ lint.ignore = [
     "PTH100", "PTH103", "PTH107", "PTH110", "PTH112", "PTH118", "PTH119", "PTH120", "PTH123",
     "ERA001",                    # commented-out variants document alternatives tried
     "S101",                      # assert is fine outside production services
-    "PD901",                     # `df` is a readable name here
     "PLR0911", "PLR0912", "PLR0913", "PLR0915", "C901",  # long analysis functions
     "FBT001", "FBT002", "FBT003",
     "TRY003", "EM101", "EM102", "TRY300", "TRY301", "TRY400",
@@ -97,6 +96,8 @@ lint.ignore = [
     "ISC001", "COM812",          # conflict with the formatter
     "RUF001", "RUF002", "RUF003", "RUF010", "RUF012",
     "E402",                      # scripts adjust sys.path before importing project modules
+    "PLW2901",                   # `src = src.to(device)` is the idiomatic PyTorch way to
+                                 # move a batch; rebinding the loop variable is deliberate
 ]
 
 lint.unfixable = ["RUF003","RUF001","RUF010", "G004","TRY003","EM101","E712","ERA001", "RET504"]
@@ -133,6 +134,18 @@ exclude = [
 target-version = "py313"
 # fixable = ["Q"]
 
+
+[tool.ruff.lint.per-file-ignores]
+# Vendored verbatim from the RDKit contrib SA-score implementation
+# (Ertl & Schuffenhauer, J. Cheminform. 1:8, 2009). Kept byte-compatible with
+# upstream so it can be re-synced; its naming is not ours to change.
+# These two scripts embed a whole Markdown report in a triple-quoted string.
+# Re-wrapping those lines would insert real line breaks into the generated document.
+"step_01_target_selection/run_target_analysis.py" = ["E501"]
+"step_02_activity_prediction/run_prediction_model.py" = ["E501"]
+"utils/sascore.py" = [
+    "N802", "N816", "A001", "S301", "SIM115", "PLW0603", "ARG001", "B007", "ERA001", "UP031",
+]
 
 [tool.ruff.lint.mccabe]
 # Flag errors (`C901`) whenever the complexity level exceeds 5.

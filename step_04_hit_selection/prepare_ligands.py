@@ -65,7 +65,7 @@ def prepare_single_ligand(args: tuple[int, str, Path]) -> tuple[str, bool]:
     # --- Этап 2: Конвертация PDB в PDBQT с помощью OpenBabel ---
     cmd = ["obabel", str(temp_pdb_path), "-O", str(output_pdbqt_path), "--partialcharge", "gasteiger"]
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         error_msg = e.stderr.strip() if hasattr(e, "stderr") else str(e)
         LOGGER.error(f"[{mol_id}] OpenBabel не смог конвертировать {smiles}. Ошибка: {error_msg}")

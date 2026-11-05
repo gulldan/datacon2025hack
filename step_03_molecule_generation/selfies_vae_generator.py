@@ -16,7 +16,7 @@ import math
 import random
 
 import numpy as np
-import selfies as sf  # type: ignore
+import selfies as sf  # type: ignore[import-untyped]
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -58,7 +58,7 @@ class Vocab:
         self.pad = "[PAD]"
         self.bos = "[SOS]"
         self.eos = "[EOS]"
-        tokens = [self.pad, self.bos, self.eos] + sorted(set(tokens))
+        tokens = [self.pad, self.bos, self.eos, *sorted(set(tokens))]
         self.stoi = {t: i for i, t in enumerate(tokens)}
         self.itos = tokens
 
@@ -92,7 +92,7 @@ def load_selfies() -> list[str]:
     df = pl.read_parquet(config.ACTIVITY_DATA_PROCESSED_PATH)
     smiles_list: list[str] = df["SMILES"].unique().to_list()  # type: ignore[no-any-return]
 
-    from rdkit import Chem  # type: ignore
+    from rdkit import Chem  # type: ignore[import-untyped]
 
     selfies_list: list[str] = []
     AUG_PER_MOL = config.AUG_PER_MOL  # количество рандомных перестановок SMILES
@@ -186,7 +186,6 @@ class SelfiesVAE(nn.Module):
             # Sample from latent space with some diversity
             z = torch.randn(num, LATENT_DIM, device=dev) * 1.0  # Reduce variance
             bos_idx = vocab.stoi[vocab.bos]
-            eos_idx = vocab.stoi.get(vocab.eos, vocab.stoi[vocab.pad])
             pad_idx = vocab.stoi[vocab.pad]
 
             seqs = torch.full((num, MAX_LEN), pad_idx, dtype=torch.long, device=dev)
@@ -415,7 +414,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
             LOGGER.info(f"Raw sampling produced {len(sampled_raw)} molecules")
 
             # Additional validation with RDKit
-            from rdkit import Chem  # type: ignore
+            from rdkit import Chem  # type: ignore[import-untyped]
 
             validated_smiles = []
             for smi in sampled_raw:
@@ -426,7 +425,7 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
                             # Canonicalize SMILES
                             canonical_smi = Chem.MolToSmiles(mol)
                             validated_smiles.append(canonical_smi)
-                    except Exception:
+                    except Exception:  # noqa: S112  -- a single unparsable molecule must not abort a batch of thousands
                         continue
 
             LOGGER.info(f"After RDKit validation: {len(validated_smiles)} valid molecules")
@@ -476,13 +475,13 @@ def train_and_sample(n_samples: int = GENERATE_N) -> list[str]:
         # Sample random SELFIES from training data and try to decode
         for _ in range(min(100, len(selfies_data))):
             try:
-                selfies_str = random.choice(selfies_data)
+                selfies_str = random.choice(selfies_data)  # noqa: S311  -- sampling for molecule generation, not cryptography
                 smi = sf.decoder(selfies_str)
                 if smi:
                     fallback_smiles.append(smi)
                 if len(fallback_smiles) >= 50:
                     break
-            except Exception:
+            except Exception:  # noqa: S112  -- a single unparsable molecule must not abort a batch of thousands
                 continue
 
         if fallback_smiles:

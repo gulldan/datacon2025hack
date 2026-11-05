@@ -21,7 +21,7 @@ from tqdm import tqdm
 # Добавляем путь к корневой директории проекта
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config import *
+from config import BOX_CENTER, BOX_SIZE, DOCKING_PARAMETERS, PROTEIN_PDBQT_PATH
 from utils.logger import LOGGER as logger
 
 
@@ -58,7 +58,7 @@ class AcceleratedDocking:
         autodock_gpu_path = self.config.get("autodock_gpu_path", "")
         if autodock_gpu_path and Path(autodock_gpu_path).exists():
             try:
-                result = subprocess.run([autodock_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)
+                result = subprocess.run([autodock_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
                 if result.returncode == 0:
                     logger.info("AutoDock-GPU доступен")
                     return True
@@ -69,7 +69,7 @@ class AcceleratedDocking:
         vina_gpu_path = self.config.get("vina_gpu_path", "vina_gpu")
         if vina_gpu_path and Path(vina_gpu_path).exists():
             try:
-                result = subprocess.run([vina_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)
+                result = subprocess.run([vina_gpu_path, "--help"], check=False, capture_output=True, text=True, timeout=5)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
                 if result.returncode == 0:
                     logger.info("Vina-GPU доступен")
                     return True
@@ -104,7 +104,7 @@ class AcceleratedDocking:
             cmd = [vina_gpu_path, "--config", str(config_file)]
 
             start_time = time.time()
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
                 cmd, check=False, capture_output=True, text=True, timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
             )
 
@@ -157,10 +157,8 @@ class AcceleratedDocking:
         scores = {}
 
         # Фильтруем только файлы с содержимым
-        valid_ligands = []
-        for ligand_file in ligand_files:
-            if ligand_file.stat().st_size > 100:  # Минимальный размер файла
-                valid_ligands.append(ligand_file)
+        # Минимальный размер файла
+        valid_ligands = [f for f in ligand_files if f.stat().st_size > 100]
 
         if not valid_ligands:
             logger.warning("Нет валидных лигандов для докинга")
@@ -197,10 +195,8 @@ class AcceleratedDocking:
         scores = {}
 
         # Фильтруем только файлы с содержимым
-        valid_ligands = []
-        for ligand_file in ligand_files:
-            if ligand_file.stat().st_size > 100:  # Минимальный размер файла
-                valid_ligands.append(ligand_file)
+        # Минимальный размер файла
+        valid_ligands = [f for f in ligand_files if f.stat().st_size > 100]
 
         if not valid_ligands:
             logger.warning("Нет валидных лигандов для докинга")
@@ -335,7 +331,7 @@ class AcceleratedDocking:
     def _run_single_autodock_gpu(self, cmd: list[str], ligand_name: str, dlg_path: Path) -> float | None:
         """Запускает один процесс AutoDock-GPU"""
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
                 cmd,
                 check=False,
                 capture_output=True,
@@ -550,7 +546,7 @@ class AcceleratedDocking:
 
             cmd = [autogrid_path, "-p", str(gpf_path), "-l", str(log_path)]
 
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=300, cwd=self.temp_dir)
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=300, cwd=self.temp_dir)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
 
             if result.returncode != 0:
                 logger.error(f"autogrid4 завершился с ошибкой: {result.stderr}")
@@ -602,7 +598,7 @@ class AcceleratedDocking:
                 "1",  # Минимальный вывод с результатами
             ]
 
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
 
             if result.returncode == 0:
                 score = self._parse_vina_output(result.stdout)
@@ -671,7 +667,7 @@ class AcceleratedDocking:
                 str(output_dir / f"{ligand_file.stem}_out.pdbqt"),
             ]
 
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
 
             if result.returncode == 0:
                 score = self._parse_vina_output(result.stdout)
@@ -819,7 +815,7 @@ class AcceleratedDocking:
         # --- Этап 2: Конвертация PDB в PDBQT с помощью OpenBabel ---
         cmd = ["obabel", str(temp_pdb_path), "-O", str(output_file), "--partialcharge", "gasteiger"]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             error_msg = e.stderr.strip() if hasattr(e, "stderr") else str(e)
             logger.error(f"[{mol_id}] OpenBabel не смог конвертировать {smiles}. Ошибка: {error_msg}")
@@ -871,7 +867,7 @@ class HierarchicalDocking:
             top_molecules = []
 
             mol_dict = {mol.get("id", f"mol_{i}"): mol for i, mol in enumerate(molecules)}
-            for mol_id, score in sorted_scores[:top_count]:
+            for mol_id, _score in sorted_scores[:top_count]:
                 if mol_id in mol_dict:
                     top_molecules.append(mol_dict[mol_id])
 

@@ -22,10 +22,10 @@ if str(ROOT_DIR) not in _sys.path:
 
 import polars as pl
 from rdkit import (
-    Chem,  # type: ignore
-    DataStructs,  # type: ignore
+    Chem,  # type: ignore[import-untyped]
+    DataStructs,  # type: ignore[import-untyped]
 )
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
@@ -81,7 +81,7 @@ def main() -> None:
 
     LOGGER.info(f"Loaded {len(smiles_raw)} raw SMILES.")
 
-    train_smiles, train_fps = load_training_set()
+    _train_smiles, train_fps = load_training_set()
 
     valid: list[str] = []
     fps: list = []

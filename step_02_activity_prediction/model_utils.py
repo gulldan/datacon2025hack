@@ -11,17 +11,20 @@ pickling (``joblib``), which is not supported by the underlying ``polars_ds`` ob
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import xgboost as xgb  # type: ignore
-from rdkit import Chem, DataStructs  # type: ignore
-from rdkit.Chem import Descriptors  # type: ignore
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+import xgboost as xgb  # type: ignore[import-untyped]
+from rdkit import Chem, DataStructs  # type: ignore[import-untyped]
+from rdkit.Chem import Descriptors  # type: ignore[import-untyped]
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
 
 # -----------------------------------------------------------------------------
 # Fingerprint helpers

@@ -15,7 +15,7 @@ import subprocess
 import sys as _sys
 from pathlib import Path
 
-from Bio.PDB import PDBList  # type: ignore
+from Bio.PDB import PDBList  # type: ignore[import-untyped]
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in _sys.path:
@@ -35,7 +35,7 @@ def download_pdb(pdb_id: str, dst: Path) -> None:
 
 def clean_protein(src: Path, out: Path) -> None:
     LOGGER.info("Cleaning protein – removing waters/hetero atoms…")
-    from Bio.PDB import PDBIO, PDBParser  # type: ignore
+    from Bio.PDB import PDBIO, PDBParser  # type: ignore[import-untyped]
 
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("prot", str(src))
@@ -44,16 +44,16 @@ def clean_protein(src: Path, out: Path) -> None:
     io = PDBIO()
 
     class SelectBackbone:
-        def accept_model(self, model):  # type: ignore[override]
+        def accept_model(self, _model):  # type: ignore[override]
             return True
 
-        def accept_chain(self, chain):  # type: ignore[override]
+        def accept_chain(self, _chain):  # type: ignore[override]
             return True
 
         def accept_residue(self, residue):  # type: ignore[override]
             return residue.id[0] == " "  # keep only standard residues
 
-        def accept_atom(self, atom):  # type: ignore[override]
+        def accept_atom(self, _atom):  # type: ignore[override]
             return True
 
     io.set_structure(structure)
@@ -70,7 +70,7 @@ def pdb_to_pdbqt(pdb_path: Path, pdbqt_path: Path) -> None:
         "--partialcharge",
         "gasteiger",
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
 
 
 def strip_torsion_tree(pdbqt_path: Path) -> None:

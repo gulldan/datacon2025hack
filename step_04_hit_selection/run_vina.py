@@ -34,8 +34,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in _sys.path:
     _sys.path.insert(0, str(ROOT_DIR))
 
-import config  # type: ignore
-from utils.logger import LOGGER as logger  # type: ignore
+import config  # type: ignore[import-untyped]
+from utils.logger import LOGGER as logger  # type: ignore[import-untyped]
 
 # -----------------------------------------------------------------------------
 # Constants & binary availability checks
@@ -50,7 +50,7 @@ GPU_AVAILABLE = AUTODOCK_GPU_AVAILABLE or VINA_GPU_AVAILABLE
 
 # Detect `--log` support once (Vina 1.2+)
 try:
-    _help_out = subprocess.run([VINA_BIN, "--help"], check=True, capture_output=True, text=True)
+    _help_out = subprocess.run([VINA_BIN, "--help"], check=True, capture_output=True, text=True)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
     HAS_LOG_OPTION = "--log" in _help_out.stdout
 except Exception:  # pylint: disable=broad-except
     HAS_LOG_OPTION = False
@@ -97,7 +97,7 @@ def dock_ligand_cpu(lig_pdbqt: Path, out_pdbqt: Path, log_path: Path, docking_pa
         cmd += ["--log", str(log_path)]
 
     try:
-        res = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        res = subprocess.run(cmd, check=True, capture_output=True)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
     except subprocess.CalledProcessError as exc:
         stderr = exc.stderr.decode() if exc.stderr else ""
         if "unrecognised option '--log'" in stderr or "unknown option log" in stderr:
@@ -195,16 +195,15 @@ def dock_ligands_parallel(lig_files: list[Path], max_workers: int | None = None)
 
     params = optimize_vina_parameters()
 
-    tasks = []
-    for lig in lig_files:
-        tasks.append(
-            (
-                lig,
-                lig.with_name(lig.stem + "_dock.pdbqt"),
-                lig.with_suffix(".log"),
-                params,
-            )
+    tasks = [
+        (
+            lig,
+            lig.with_name(lig.stem + "_dock.pdbqt"),
+            lig.with_suffix(".log"),
+            params,
         )
+        for lig in lig_files
+    ]
 
     results: list[tuple[str, float | None]] = []
     with ProcessPoolExecutor(max_workers=max_workers) as pool:

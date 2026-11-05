@@ -15,12 +15,12 @@ import argparse
 import json
 
 import numpy as np
-import optuna  # type: ignore
+import optuna  # type: ignore[import-untyped]
 import polars as pl
-import xgboost as xgb  # type: ignore
-from rdkit import Chem, DataStructs  # type: ignore
-from rdkit.Chem import Descriptors  # type: ignore
-from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore
+import xgboost as xgb  # type: ignore[import-untyped]
+from rdkit import Chem, DataStructs  # type: ignore[import-untyped]
+from rdkit.Chem import Descriptors  # type: ignore[import-untyped]
+from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
@@ -118,7 +118,9 @@ def main() -> None:
     permutation = rng.permutation(len(X))
     X, y = X[permutation], y[permutation]
     split = int(0.8 * len(X))
-    global dtrain, dval, y_val  # pylint: disable=global-statement
+    # optuna objectives receive no state, so the prepared DMatrix objects
+    # are shared through module scope
+    global dtrain, dval, y_val  # noqa: PLW0603
     dtrain = xgb.DMatrix(X[:split], label=y[:split])
     dval = xgb.DMatrix(X[split:], label=y[split:])
     y_val = y[split:]

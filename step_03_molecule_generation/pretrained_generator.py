@@ -137,7 +137,7 @@ class PretrainedMolecularGenerator:
         try:
             mol = Chem.MolFromSmiles(smiles)
             return mol is not None
-        except:
+        except Exception:
             return False
 
     def compute_embeddings(self, smiles_list: list[str]) -> np.ndarray:

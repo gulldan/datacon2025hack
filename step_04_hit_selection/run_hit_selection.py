@@ -24,7 +24,15 @@ except ImportError:
 # Добавляем путь к корневой директории проекта
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config import *
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+from config import (
+    BOX_CENTER,
+    BOX_SIZE,
+    DOCKING_PARAMETERS,
+    PROTEIN_PDBQT_PATH,
+)
 from utils.logger import LOGGER as logger
 
 # Логируем предупреждение о GPUtil после инициализации logger
@@ -67,7 +75,7 @@ class GPUAcceleratedDocking:
             return False
 
         try:
-            gpus = GPUtil.getGPUs()  # type: ignore
+            gpus = GPUtil.getGPUs()  # type: ignore[attr-defined]
             if gpus:
                 gpu = gpus[self.gpu_device] if self.gpu_device < len(gpus) else gpus[0]
                 logger.info(f"Найден GPU: {gpu.name}, память: {gpu.memoryFree}MB свободно")
@@ -106,7 +114,7 @@ class GPUAcceleratedDocking:
             cmd = [self.vina_gpu_path, "--config", str(config_file)]
 
             start_time = time.time()
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
                 cmd, check=False, capture_output=True, text=True, timeout=self.timeout * len(list(ligand_dir.glob("*.pdbqt")))
             )
 
@@ -188,7 +196,7 @@ class GPUAcceleratedDocking:
                 str(self.config.get("num_threads", cpu_count())),
             ]
 
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
 
             if result.returncode == 0:
                 return self._parse_vina_output(result.stdout)
@@ -325,7 +333,7 @@ class GPUAcceleratedDocking:
         cmd = ["obabel", str(temp_pdb_path), "-O", str(output_pdbqt_path), "--partialcharge", "gasteiger"]
         logger.info(f"[{mol_id}] OpenBabel: Запуск команды: {' '.join(cmd)}")
         try:
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)  # noqa: S603  -- fixed argv, no shell; the binary is a docking tool configured in config.py
             logger.info(f"[{mol_id}] OpenBabel: Команда успешно выполнена.")
         except Exception as e:
             error_msg = e.stderr.strip() if hasattr(e, "stderr") else str(e)
@@ -373,7 +381,7 @@ class HierarchicalDocking:
             top_molecules = []
 
             mol_dict = {mol["id"]: mol for mol in molecules}
-            for mol_id, score in sorted_scores[:top_count]:
+            for mol_id, _score in sorted_scores[:top_count]:
                 if mol_id in mol_dict:
                     top_molecules.append(mol_dict[mol_id])
 
@@ -404,7 +412,7 @@ def optimize_docking_performance():
     # Проверяем GPU
     try:
         if GPU_AVAILABLE:
-            gpus = GPUtil.getGPUs()  # type: ignore
+            gpus = GPUtil.getGPUs()  # type: ignore[attr-defined]
             if gpus:
                 for i, gpu in enumerate(gpus):
                     logger.info(f"GPU {i}: {gpu.name}, память: {gpu.memoryTotal}MB")

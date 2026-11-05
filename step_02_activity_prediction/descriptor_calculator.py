@@ -190,7 +190,8 @@ def calculate_rdkit_descriptors(smiles_list: list[str], use_cache: bool = True) 
             return cached_result
 
     # Получаем список всех дескрипторов RDKit
-    descriptor_list = [x[0] for x in Descriptors._descList]
+    # `_descList` is RDKit's documented registry of (name, fn) descriptor pairs
+    descriptor_list = [x[0] for x in Descriptors._descList]  # noqa: SLF001
     logger.info(f"Найдено {len(descriptor_list)} дескрипторов RDKit")
 
     results = []
@@ -558,7 +559,7 @@ def calculate_padel_descriptors(
                 Path(input_file).unlink(missing_ok=True)
             if "output_csv" in locals() and output_csv:
                 Path(output_csv).unlink(missing_ok=True)
-        except Exception:
+        except Exception:  # noqa: S110  -- a single unparsable molecule must not abort a batch of thousands
             pass
         return None
 

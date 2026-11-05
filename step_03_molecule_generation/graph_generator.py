@@ -20,10 +20,10 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 import torch
-from rdkit import Chem  # type: ignore
+from rdkit import Chem  # type: ignore[import-untyped]
 from torch import nn
-from torch_geometric.data import Data, DataLoader  # type: ignore
-from torch_geometric.nn import GCNConv, global_mean_pool  # type: ignore
+from torch_geometric.data import Data, DataLoader  # type: ignore[import-untyped]
+from torch_geometric.nn import GCNConv, global_mean_pool  # type: ignore[import-untyped]
 
 import config
 from utils.logger import LOGGER
@@ -156,7 +156,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
         LOGGER.info(f"Latents cached to {cache_path}")
 
     # Build simple k-NN (cosine) index
-    from sklearn.neighbors import NearestNeighbors  # type: ignore
+    from sklearn.neighbors import NearestNeighbors  # type: ignore[import-untyped]
 
     nn_model = NearestNeighbors(n_neighbors=1, metric="cosine")
     nn_model.fit(latents)
@@ -165,7 +165,7 @@ def train_and_sample(n_samples: int = 1000) -> list[str]:
     sampled = []
     while len(sampled) < n_samples:
         z = rng.standard_normal(LATENT_DIM).reshape(1, -1)
-        dist, idx = nn_model.kneighbors(z, return_distance=True)
+        _dist, idx = nn_model.kneighbors(z, return_distance=True)
         smi = smiles_train[int(idx[0][0])]
         sampled.append(smi)
 
